@@ -62,7 +62,7 @@ class ChatNotifier extends StateNotifier<List<ConversationModel>> {
     ];
   }
 
-  /// Cập nhật trạng thái online/offft của bạn chat từ sự kiện presence.
+  /// Cập nhật trạng thái online/offline của bạn chat từ sự kiện presence.
   void applyPresence(String userId, bool online) {
     state = [
       for (final c in state)

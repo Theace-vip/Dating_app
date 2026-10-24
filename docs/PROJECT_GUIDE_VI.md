@@ -1,6 +1,8 @@
 # Hướng dẫn cấu trúc và luồng code SoulMate
 
-Tài liệu dành cho người mới đọc source. Ứng dụng gồm Flutter (giao diện iOS/Android) và backend Node.js + Express + Socket.IO + SQLite. Flutter gọi API HTTPS để đọc/ghi dữ liệu; Socket.IO dùng cho sự kiện tức thời; WebRTC truyền âm thanh/video trực tiếp giữa hai thiết bị.
+Tài liệu dành cho người mới đọc source. Ứng dụng gồm Flutter (giao diện iOS/Android) và backend Node.js + Express + Socket.IO + SQLite.
+
+> Muốn xem luồng chạy chi tiết theo từng chức năng (đăng nhập, feed, chat, gọi, Soul Game, phòng), đọc [`CODE_FLOWS_VI.md`](CODE_FLOWS_VI.md). Flutter gọi API HTTPS để đọc/ghi dữ liệu; Socket.IO dùng cho sự kiện tức thời; WebRTC truyền âm thanh/video trực tiếp giữa hai thiết bị.
 
 ## 1. Thư mục chính
 

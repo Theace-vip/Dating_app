@@ -20,7 +20,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Chống MitM: chỉ chấp nhận certificate có pin đúng với SoulMate server.
   installCertificatePinning();
-  // Khôi phục địa chỉ máy chủ đã lưu (IP LAN / IP公网) nếu người dùng đã đổi.
+  // Khôi phục địa chỉ máy chủ đã lưu (IP LAN / IP công khai) nếu người dùng đã đổi.
   final prefs = await SharedPreferences.getInstance();
   final savedHost = prefs.getString('server_host');
   if (savedHost != null && savedHost.isNotEmpty) {

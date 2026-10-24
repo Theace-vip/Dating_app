@@ -1,6 +1,6 @@
 class AppConfig {
   // Backend chạy trên PC. Mặc định qua cáp USB (adb reverse tcp:3000 -> localhost).
-  // Có thể đổi sang IP LAN / IP公网 trong app (Cá nhân -> thẻ Mạng -> Demo connectivity_plus
+  // Có thể đổi sang IP LAN / IP công khai trong app (Cá nhân -> thẻ Mạng -> Demo connectivity_plus
   // -> Máy chủ) — lưu vào SharedPreferences, áp dụng lại khi mở app.
   static String serverHost = 'localhost';
   static String apiBaseUrl = 'https://localhost:3000';
