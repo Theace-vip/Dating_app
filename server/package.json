@@ -1,0 +1,27 @@
+{
+  "name": "soulmate-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend cho app hẹn hò SoulMate (auth + chat + feed + rooms + matching)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "gen-cert": "node scripts/gen-cert.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "selfsigned": "^2.4.1",
+    "socket.io": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}
