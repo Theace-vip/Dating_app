@@ -12,6 +12,8 @@ import 'package:dating_app/features/profile/network_demo_page.dart';
 import 'package:dating_app/features/profile/wallet_page.dart';
 import 'package:dating_app/features/profile/vip_page.dart';
 
+/// Tab Cá nhân: hiển thị hồ sơ hiện tại, số dư ví, VIP, đổi mật khẩu,
+/// chỉnh sửa hồ sơ, kiểm tra mạng/máy chủ và đăng xuất.
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
@@ -26,6 +28,8 @@ class ProfilePage extends ConsumerWidget {
     }
   }
 
+  /// Đổi mật khẩu qua API: kiểm tra nhập lại, gọi server, sau đó server
+  /// thu hồi các phiên cũ và trả token mới cho thiết bị hiện tại.
   Future<void> _showChangePassword(BuildContext context, WidgetRef ref) async {
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
@@ -95,6 +99,7 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  // ===== Giao diện hồ sơ: thông tin cá nhân, số dư và các mục cài đặt =====
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);

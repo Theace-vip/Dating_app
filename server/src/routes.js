@@ -8,8 +8,15 @@ import { validPassword, issueTokenPair } from './auth.js';
 import { isOnline, roomPresenceList } from './socket.js';
 import { APP_CATALOG } from './catalog.js';
 
+/**
+ * REST API của SoulMate.
+ * Router này được gắn sau authMiddleware trong index.js nên mọi endpoint
+ * đều yêu cầu Bearer access token. File chia theo nhóm nghiệp vụ:
+ * catalog/upload, hồ sơ và bạn bè, hội thoại, feed/bình luận, phòng tiệc.
+ */
 const router = express.Router();
 
+// ====================== CATALOG ======================
 // Cache catalog như dữ liệu công khai, không gắn vào session riêng của một tài khoản.
 function sendCatalog(res, data) {
   res.set('Cache-Control', 'public, max-age=300');
@@ -32,6 +39,8 @@ router.get('/vip/catalog', (req, res) => sendCatalog(res, APP_CATALOG.vip));
 // Danh sách avatar/sở thích hợp lệ để UI hiển thị và backend kiểm tra khi lưu hồ sơ.
 router.get('/profile/options', (req, res) => sendCatalog(res, APP_CATALOG.profile));
 
+// Kiểm tra dữ liệu hồ sơ theo catalog của server; không tin danh sách
+// avatar/sở thích/ảnh do client tự gửi lên.
 function validateProfileOptions(req, res, next) {
   const { avatar, tags, age, gender, photos } = req.body || {};
   const avatarText = avatar === undefined ? null : String(avatar);
@@ -89,7 +98,9 @@ router.post('/upload', (req, res) => {
 });
 
 
-// ====================== PROFILE ======================
+// ====================== HỒ SƠ / BẠN BÈ ======================
+// Các route dưới đây chỉ thao tác trên dữ liệu của chính người đang đăng nhập,
+// trừ hồ sơ công khai và tìm kiếm người dùng.
 
 router.get('/me', (req, res) => {
   const u = getUser(req.userId);
@@ -97,6 +108,8 @@ router.get('/me', (req, res) => {
   res.json({ user: publicUser(u) });
 });
 
+// Cập nhật hồ sơ: validateProfileOptions kiểm tra avatar/sở thích/tuổi/giới tính/ảnh
+// trước khi ghi, sau đó chuẩn hoá lại lần nữa để tránh dữ liệu vượt giới hạn.
 router.patch('/me', validateProfileOptions, (req, res) => {
   const u = getUser(req.userId);
   if (!u) return res.status(404).json({ error: 'not_found' });
@@ -201,6 +214,8 @@ router.post('/me/password', (req, res) => {
 
 // ====================== HỘI THOẠI / TIN NHẮN ======================
 
+// Danh sách hội thoại kèm tin nhắn cuối và trạng thái online của đối phương.
+// Subquery đếm riêng tin chưa đọc do đối phương gửi cho người đang đăng nhập.
 router.get('/conversations', (req, res) => {
   const rows = db.prepare(`
     SELECT c.id, c.last_message, c.last_message_at,
@@ -228,6 +243,7 @@ router.get('/conversations', (req, res) => {
   });
 });
 
+// Mở hội thoại 1-1 với một user; nếu đã có thì trả lại id cũ.
 router.post('/conversations/ensure', (req, res) => {
   const { partnerId } = req.body || {};
   if (!getUser(partnerId)) return res.status(404).json({ error: 'user_not_found' });
@@ -235,6 +251,8 @@ router.post('/conversations/ensure', (req, res) => {
   res.json({ conversationId: conv.id });
 });
 
+// Chỉ thành viên của hội thoại mới được đọc/ghi; người ngoài nhận 404
+// để không lộ sự tồn tại của hội thoại.
 function findConversationFor(req, res) {
   const c = db.prepare('SELECT * FROM conversations WHERE id = ?').get(req.params.id);
   if (!c || (c.user_a !== req.userId && c.user_b !== req.userId)) {
@@ -244,6 +262,8 @@ function findConversationFor(req, res) {
   return c;
 }
 
+// Đọc lịch sử theo cursor `before` (mới nhất trước), đồng thời đánh dấu đã đọc.
+// `hasMore` báo còn tin cũ hơn để client cuộn tải tiếp.
 router.get('/conversations/:id/messages', (req, res) => {
   const c = findConversationFor(req, res);
   if (!c) return;
@@ -269,6 +289,8 @@ router.get('/conversations/:id/messages', (req, res) => {
   });
 });
 
+// Gửi tin nhắn: chỉ thành viên hội thoại, ảnh phải là URL do /api/upload trả về.
+// Tin được phát realtime cho cả người nhận và người gửi để thay tin optimistic.
 router.post('/conversations/:id/messages', (req, res) => {
   const c = findConversationFor(req, res);
   if (!c) return;
@@ -351,6 +373,8 @@ router.delete('/conversations/:id/messages/:mid', (req, res) => {
 
 // ====================== FEED ======================
 
+// Gộp dữ liệu bài viết với số like/comment và trạng thái like của người xem.
+// Bài repost lưu snapshot bài gốc dưới dạng JSON trong cột media.
 function postWithStats(postId, me) {
   const p = db.prepare(`
     SELECT p.*, u.name AS user_name, u.avatar AS user_avatar,
@@ -392,6 +416,8 @@ function postWithStats(postId, me) {
   };
 }
 
+// Tải feed theo cursor `before` hoặc offset cho lần tải đầu.
+// Cursor tránh bỏ sót bài khi bài mới realtime được chèn lên đầu danh sách.
 router.get('/feed', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 30, 60);
   const before = String(req.query.before || '');
@@ -407,6 +433,7 @@ router.get('/feed', (req, res) => {
   res.json({ posts: ids.map((r) => postWithStats(r.id, req.userId)).filter(Boolean) });
 });
 
+// Đăng bài mới: cần nội dung hoặc ít nhất một media, tối đa 9 media.
 router.post('/feed', (req, res) => {
   const content = String(req.body?.content || '').trim();
   const media = Array.isArray(req.body?.media) ? req.body.media.slice(0, 9).map(String) : [];
@@ -458,6 +485,8 @@ router.delete('/feed/:id', (req, res) => {
   res.json({ id: p.id });
 });
 
+// Like/unlike là toggle theo cặp (post_id, user_id) nên bấm lại sẽ bỏ like.
+// likedByMe chỉ trả cho người gọi; socket chỉ phát số like cho người khác.
 router.post('/feed/:id/like', (req, res) => {
   const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'not_found' });
@@ -513,6 +542,9 @@ router.post('/feed/:id/share', (req, res) => {
   res.json({ shares, repost });
 });
 
+// ====================== BÌNH LUẬN ======================
+
+// Đọc lại một bình luận kèm tên/avatar để trả REST và phát socket cùng schema.
 function commentWithAuthor(commentId, postId) {
   const row = db.prepare(`
     SELECT c.id, c.post_id, c.user_id, c.content, c.created_at,
@@ -536,6 +568,7 @@ function emitCommentSafe(event, payload) {
   try { getIO()?.emit(event, payload); } catch { /* socket chưa khởi tạo */ }
 }
 
+// Trả toàn bộ bình luận của bài theo thứ tự thời gian tăng dần.
 router.get('/feed/:id/comments', (req, res) => {
   const rows = db.prepare(`
     SELECT c.id, c.content, c.created_at, u.id AS user_id, u.name, u.avatar
@@ -607,6 +640,7 @@ router.delete('/feed/:id/comments/:cid', (req, res) => {
 
 // ====================== PHÒNG TIỆC ======================
 
+// Danh sách phòng kèm số thành viên đang online (lấy từ bộ nhớ socket).
 router.get('/rooms', (req, res) => {
   const rows = db.prepare(`
     SELECT r.*, u.name AS host_name, u.avatar AS host_avatar
@@ -629,7 +663,7 @@ router.get('/rooms', (req, res) => {
   });
 });
 
-// Tạo phòng mới
+// Tạo phòng mới; người tạo trở thành host. Tên 2-40 ký tự, chủ đề tối đa 80.
 router.post('/rooms', (req, res) => {
   const b = req.body || {};
   const name = String(b.name || '').trim();
@@ -650,6 +684,7 @@ router.post('/rooms', (req, res) => {
   });
 });
 
+// Lấy 100 tin gần nhất của phòng rồi đảo lại để client hiển thị từ cũ đến mới.
 router.get('/rooms/:id/messages', (req, res) => {
   const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(req.params.id);
   if (!room) return res.status(404).json({ error: 'not_found' });
@@ -667,6 +702,7 @@ router.get('/rooms/:id/messages', (req, res) => {
   });
 });
 
+// Gửi tin vào phòng qua REST (dự phòng khi socket chưa nối) và phát realtime cho phòng.
 router.post('/rooms/:id/messages', (req, res) => {
   const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(req.params.id);
   if (!room) return res.status(404).json({ error: 'not_found' });

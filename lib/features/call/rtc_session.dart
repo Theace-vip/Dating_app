@@ -45,7 +45,9 @@ class RtcSession {
     if (!_stateCtrl.isClosed) _stateCtrl.add(s);
   }
 
+  /// ===== Vòng đời kết nối =====
   /// Xin quyền lấy media cục bộ, thêm track vào peer connection và cài callback WebRTC.
+  /// Chỉ sau khi có track mới bật cờ nhận signaling để tránh tạo answer thiếu media.
   Future<void> start() async {
     _pc = await createPeerConnection({'iceServers': AppConfig.iceServers});
 
@@ -114,7 +116,10 @@ class RtcSession {
     send({'kind': 'offer', 'sdp': offer.sdp});
   }
 
+  /// ===== Xử lý signaling =====
   /// Nhận tín hiệu signaling từ đối phương (offer/answer/ice).
+  /// Tín hiệu được xếp hàng và áp tuần tự; ICE đến trước SDP được giữ lại
+  /// cho tới khi setRemoteDescription xong.
   Future<void> handleSignal(Map<String, dynamic> data) async {
     if (_disposed) return;
     if (!_readyForSignals) {

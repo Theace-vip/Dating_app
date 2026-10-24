@@ -11,6 +11,10 @@ import 'package:dating_app/data/repositories/catalog_repository.dart';
 import 'package:dating_app/features/chat/chat_detail_page.dart';
 import 'package:dating_app/shared/widgets/app_widgets.dart';
 
+/// Soul Game (text): ghép 2 người ẩn danh qua hàng đợi server, chat realtime,
+/// thả tim và hiện danh tính khi hai bên đồng ý.
+/// Toàn bộ thời lượng/trạng thái phiên do server quyết định; UI chỉ hiển thị
+/// đồng hồ dựa trên mốc `endsAt` và phản ứng theo sự kiện socket.
 enum _SoulStatus { searching, matched, ended }
 
 class SoulGamePage extends ConsumerStatefulWidget {
@@ -60,6 +64,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
       return;
     }
 
+    // ===== Đồng bộ sự kiện ghép đôi, tin nhắn, thả tim và kết thúc phiên =====
     _subs.add(
       socket.on('soul:matched').listen((data) {
         if (!mounted) return;
@@ -292,6 +297,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     Future.microtask(_loadOptionsAndQueue);
   }
 
+  /// Lấy thời lượng text từ catalog backend rồi mới vào hàng đợi.
   Future<void> _loadOptionsAndQueue() async {
     try {
       final catalog = await ref.read(appCatalogProvider.future);
@@ -310,6 +316,8 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     }
   }
 
+  /// Đồng hồ chỉ để hiển thị; khi hết giờ vẫn phải chờ `soul:time-ended`
+  /// từ server mới chuyển trạng thái, tránh client tự kéo dài/rút ngắn phiên.
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -328,6 +336,8 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     });
   }
 
+  /// Gửi tin ẩn danh: hiển thị ngay (optimistic) rồi phát socket;
+  /// server chỉ relay cho đúng thành viên của phiên.
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sessionId == null) return;
@@ -343,6 +353,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     _scrollToBottom();
   }
 
+  /// Xin server hiện danh tính; kết quả thật đến qua `soul:revealed`.
   Future<void> _reveal() async {
     if (_sessionId == null) return;
     if (!await ensureOnline(context, ref)) return;
@@ -353,6 +364,8 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     );
   }
 
+  /// Thả tim sau khi server mở khoá (đủ 5 tin hoặc đủ 10 giây).
+  /// `_likePending` chặn bấm lặp trong lúc chờ phản hồi.
   Future<void> _like() async {
     if (_sessionId == null || !_heartAvailable || _liked || _likePending) {
       return;
@@ -369,6 +382,8 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     socket.emit('soul:like', {'sessionId': _sessionId});
   }
 
+  /// Xin gia hạn phiên sau khi hết giờ; server kiểm tra đúng thành viên
+  /// và chỉ cho gia hạn khi phiên đã thực sự hết thời gian.
   Future<void> _continueChat() async {
     if (_sessionId == null || !await ensureOnline(context, ref)) return;
     if (!mounted) return;
@@ -382,6 +397,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     socket.emit('soul:continue', {'sessionId': _sessionId});
   }
 
+  /// Rời phiên hiện tại và vào lại hàng đợi tìm người mới.
   Future<void> _findAnother() async {
     if (!await ensureOnline(context, ref) || !mounted) return;
     final socket = ref.read(socketProvider);
@@ -420,6 +436,8 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     });
   }
 
+  /// Sheet kết thúc phiên: gia hạn, hiện danh tính hoặc tìm người mới.
+  /// Không cho vuốt/đóng ngoài để hai bên luôn chọn bước tiếp theo.
   void _showEndSheet() {
     _endSheetOpen = true;
     showModalBottomSheet(
@@ -560,6 +578,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
     super.dispose();
   }
 
+  // ===== Giao diện theo trạng thái: tìm kiếm / đang ghép / kết thúc =====
   @override
   Widget build(BuildContext context) {
     return Scaffold(

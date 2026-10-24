@@ -15,6 +15,10 @@ import 'package:dating_app/shared/widgets/app_widgets.dart';
 import 'package:dating_app/features/feed/create_post_page.dart';
 import 'package:dating_app/features/profile/public_profile_page.dart';
 
+// ===== Danh sách feed =====
+/// Màn hình Bảng tin: danh sách bài viết, thẻ bài, chia sẻ/repost và bottom sheet
+/// bình luận. Dữ liệu lấy từ [feedProvider]; like/comment/share đồng bộ qua REST
+/// và các event feed của Socket.IO.
 class FeedPage extends ConsumerWidget {
   const FeedPage({super.key});
 
@@ -59,6 +63,8 @@ class FeedPage extends ConsumerWidget {
   }
 }
 
+// ===== Thẻ bài viết =====
+/// Render một bài gốc hoặc repost; menu sửa/xóa chỉ hiện với chủ bài.
 class _PostCard extends ConsumerWidget {
   const _PostCard({required this.post});
   final PostModel post;
@@ -203,6 +209,8 @@ class _PostCard extends ConsumerWidget {
     );
   }
 
+  /// Mở hai lựa chọn: chia sẻ ra ứng dụng khác hoặc đăng lại kèm caption.
+  /// Chỉ ghi nhận lượt share khi hệ điều hành báo đã mở bảng chia sẻ thành công.
   Future<void> _showShareOptions(BuildContext context, WidgetRef ref) async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -412,6 +420,8 @@ class _PostCard extends ConsumerWidget {
     }
   }
 
+  // ===== Bình luận =====
+  /// Mở bottom sheet bình luận của đúng bài đang chọn.
   void _showComments(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -428,6 +438,7 @@ class _PostCard extends ConsumerWidget {
   }
 }
 
+// ===== Bottom sheet bình luận =====
 class _CommentsSheet extends ConsumerStatefulWidget {
   const _CommentsSheet({required this.postId});
   final String postId;
@@ -450,6 +461,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       () => ref.read(commentsProvider(widget.postId).notifier).load(),
     );
 
+    // Đăng ký realtime một lần cho sheet đang mở; dispose sẽ hủy các subscription.
     final socket = ref.read(socketProvider);
     _commentSubscriptions.add(
       socket.on('feed:comment:new').listen((data) {
@@ -561,9 +573,11 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Danh sách bình luận lấy từ provider; các event realtime cập nhật cùng state.
     final comments = ref.watch(commentsProvider(widget.postId));
     final media = MediaQuery.of(context);
     final keyboardInset = media.viewInsets.bottom;
+    // ===== Ô nhập và né bàn phím =====
     // Bottom sheet luôn neo ở đáy màn hình, nên chỉ giảm chiều cao là chưa đủ:
     // phải đẩy toàn bộ nội dung lên đúng bằng chiều cao bàn phím để ô nhập
     // luôn nằm phía trên bàn phím. Đặt padding bên trong sheet để nó cập nhật

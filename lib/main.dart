@@ -14,6 +14,8 @@ import 'package:dating_app/data/api/socket_client.dart';
 import 'package:dating_app/data/repositories/auth_repository.dart';
 import 'package:dating_app/features/call/call_page.dart';
 
+/// Điểm vào ứng dụng: cài pinning, khôi phục địa chỉ server đã lưu rồi dựng app.
+/// Các kết nối socket/cuộc gọi được quản lý ở [_MyAppState] để dùng chung toàn app.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Chống MitM: chỉ chấp nhận certificate có pin đúng với SoulMate server.
@@ -42,14 +44,16 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Khôi phục hàng đợi tin nhắn offline từ lần chạy trước (nếu có)
+    // ===== Hàng đợi gửi offline =====
+    // Nạp lại outbox từ lần chạy trước; nếu đang có mạng thì gửi bù ngay.
     Future.microtask(() async {
       final outbox = ref.read(outboxProvider);
       await outbox.init();
       if (ref.read(isOnlineProvider)) await outbox.flush();
     });
 
-    // Cập nhật số dư ví khi server báo (gửi quà trong phòng...)
+    // ===== Ví realtime =====
+    // Server là nguồn số dư chính; event này giữ UI khớp sau khi tặng quà.
     _walletSub = ref.read(socketProvider).on('user:wallet').listen((data) {
       final map = data as Map;
       ref
@@ -60,8 +64,9 @@ class _MyAppState extends ConsumerState<MyApp> {
           );
     });
 
-    // Cuộc gọi đến: mở giao diện accept/reject trên root navigator;
-    // nếu app đã có màn gọi thì từ chối để không chiếm cùng lúc hai phiên media.
+    // ===== Cuộc gọi đến =====
+    // Mở giao diện accept/reject trên root navigator để không bị màn hình nào che.
+    // Nếu đang có cuộc gọi khác thì từ chối ngay, tránh hai phiên media cùng lúc.
     _callSub = ref.read(socketProvider).on('call:invite').listen((data) {
       if (!mounted) return;
       final map = data as Map;
@@ -100,7 +105,8 @@ class _MyAppState extends ConsumerState<MyApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
-    // Socket kết nối khi đã đăng nhập, ngắt khi đăng xuất
+    // ===== Vòng đời socket theo phiên đăng nhập =====
+    // Kết nối sau khi đăng nhập; ngắt khi đăng xuất để không giữ token cũ.
     ref.listen(authProvider, (previous, next) {
       final socket = ref.read(socketProvider);
       if (next.isLoggedIn) {
@@ -110,7 +116,8 @@ class _MyAppState extends ConsumerState<MyApp> {
       }
     });
 
-    // Mạng quay lại -> đảm bảo socket được kết nối + gửi lại hàng đợi offline
+    // ===== Kết nối lại khi mạng trở lại =====
+    // Chỉ xử lý đúng lúc chuyển offline -> online, tránh gọi connect/flush liên tục.
     ref.listen(connectivityProvider, (previous, next) {
       final now = next.valueOrNull;
       final before = previous?.valueOrNull;

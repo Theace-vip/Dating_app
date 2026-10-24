@@ -14,11 +14,14 @@ import { initSocket } from './socket.js';
 import { ensureCert } from '../scripts/gen-cert.js';
 
 // ===== HTTPS (self-signed) + cert pinning ở phía app =====
+// ensureCert tự tạo chứng chỉ nếu chưa có và trả về pin SHA-256 cho app.
 const { key, cert, pin } = ensureCert();
 
 const app = express();
 app.disable('x-powered-by');
+// Chạy sau tunnel/reverse proxy nên tin header X-Forwarded-* của proxy.
 app.set('trust proxy', 1);
+// Thứ tự middleware quan trọng: bảo vệ header -> CORS -> parse body -> rate limit.
 app.use(helmet());
 app.use(cors());
 // 10MB: đủ cho ảnh base64 (tối đa 5MB) khi upload; các payload khác vẫn bị rate limit
@@ -30,15 +33,18 @@ app.use(rateLimit({
   legacyHeaders: false,
 }));
 
+// Health check công khai để app/tunnel kiểm tra server còn sống.
 app.get('/health', (req, res) => res.json({ ok: true, app: 'SoulMate', time: Date.now() }));
 // Ảnh upload: phục vụ tĩnh (không nhạy cảm, vẫn qua HTTPS + cert pinning)
 app.use('/uploads', express.static(path.join(serverRoot, 'uploads'), {
   maxAge: '30d',
   immutable: true,
 }));
+// Auth công khai trước; toàn bộ API còn lại bắt buộc Bearer token qua authMiddleware.
 app.use('/api/auth', authRouter);
 app.use('/api', authMiddleware, apiRouter);
 
+// Error handler tập trung: JSON hỏng trả 400, lỗi khác trả 500 và chỉ log phía server.
 app.use((err, req, res, next) => {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'bad_json' });
@@ -47,6 +53,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'internal_error' });
 });
 
+// Dùng chung một HTTP server cho Express và Socket.IO để chung cổng/HTTPS.
 const server = https.createServer({ key, cert }, app);
 initSocket(server);
 
@@ -62,6 +69,7 @@ function lanAddresses() {
   return out;
 }
 
+// Lắng nghe mọi interface để điện thoại cùng WiFi truy cập được qua IP LAN.
 server.listen(config.port, '0.0.0.0', () => {
   const lans = lanAddresses();
   console.log('==================================================');

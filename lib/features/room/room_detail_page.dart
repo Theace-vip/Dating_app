@@ -12,6 +12,9 @@ import 'package:dating_app/data/repositories/catalog_repository.dart';
 import 'package:dating_app/shared/widgets/app_widgets.dart';
 import 'package:dating_app/features/call/rtc_session.dart';
 
+/// Màn hình phòng tiệc: chat nhóm, thành viên online, thả tim, gửi quà và mic.
+/// Mic dùng WebRTC mesh: mỗi cặp thành viên có một [RtcSession] riêng, tín hiệu
+/// SDP/ICE đi qua socket của phòng; server kiểm tra thành viên trước khi relay.
 class RoomDetailPage extends ConsumerStatefulWidget {
   const RoomDetailPage({super.key, required this.room});
   final RoomModel room;
@@ -42,11 +45,13 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
     final socket = _socket;
     final roomId = widget.room.id;
 
+    // ===== Vào phòng: tải lịch sử trước rồi mới join để không lỡ tin mới =====
     Future.microtask(() async {
       await _loadHistory();
       if (mounted) socket.emit('room:join', {'roomId': roomId});
     });
 
+    // ===== Chat, thành viên, tim và quà =====
     // Tin nhắn phòng realtime (kể cả do chính mình gửi qua REST)
     _subs.add(socket.on('room:message').listen((data) {
       if (!mounted) return;
@@ -134,6 +139,9 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
     }));
   }
 
+  /// Tạo kết nối mesh tới một thành viên đang bật mic.
+  /// Người vào sau nhận danh sách peers và chờ offer; người đã ở trong phòng
+  /// chủ động tạo offer khi có người mới tham gia mic.
   Future<void> _ensurePeer(String peerId, {required bool initiator}) async {
     if (_rtcPeers.containsKey(peerId)) return;
     final session = RtcSession(
@@ -300,6 +308,7 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
     for (final s in _subs) {
       s.cancel();
     }
+    // Thứ tự dọn dẹp: ngắt mic/peer trước, rời phòng sau, cuối cùng giải phóng UI.
     if (_micOn) _socket.emit('room:rtc:leave', {'roomId': widget.room.id});
     _closeAllPeers();
     _socket.emit('room:leave', {'roomId': widget.room.id});

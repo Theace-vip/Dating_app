@@ -32,6 +32,8 @@ class _PublicProfilePageState extends ConsumerState<PublicProfilePage> {
     _load();
   }
 
+  /// Tải hồ sơ công khai và trạng thái bạn bè từ server.
+  /// `initial` (nếu có) được dùng để render ngay trước khi request xong.
   Future<void> _load() async {
     if (!await ensureOnline(context, ref)) {
       if (mounted) setState(() => _loading = false);
@@ -125,6 +127,7 @@ class _PublicProfilePageState extends ConsumerState<PublicProfilePage> {
     Gender.other => 'Khác',
   };
 
+  // ===== Giao diện: avatar, thông tin, ảnh và các nút nhắn/gọi =====
   @override
   Widget build(BuildContext context) {
     final user = _user;

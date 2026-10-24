@@ -10,6 +10,10 @@ import 'package:dating_app/data/repositories/catalog_repository.dart';
 import 'package:dating_app/shared/widgets/app_widgets.dart';
 import 'package:dating_app/features/call/rtc_session.dart';
 
+/// Màn hình cuộc gọi thoại/video 1-1.
+/// Trạng thái đi theo thứ tự: ringing/outgoing -> accepted -> WebRTC connected -> ended.
+/// Socket chỉ vận chuyển offer/answer/ICE; mic/camera truyền trực tiếp qua WebRTC.
+///
 /// Đang có 1 cuộc gọi (chặn gọi đến chồng lên nhau)
 bool gInCall = false;
 
@@ -73,6 +77,8 @@ class _CallPageState extends ConsumerState<CallPage>
     // Thời gian chuông lấy từ cấu hình backend thay vì hằng số giao diện.
     Future.microtask(_loadCallOptions);
 
+    // ===== Lắng nghe sự kiện cuộc gọi =====
+    // Mọi sự kiện đều lọc theo callId để không nhầm cuộc gọi khác.
     final socket = ref.read(socketProvider);
 
     _subs.add(
@@ -272,6 +278,7 @@ class _CallPageState extends ConsumerState<CallPage>
     });
   }
 
+  /// Đẩy các tín hiệu SDP/ICE đã nhận sớm vào phiên WebRTC khi phiên sẵn sàng.
   void _flushPendingSignals() {
     final session = _session;
     if (!_sessionReady || session == null || _pendingSignals.isEmpty) return;
@@ -314,6 +321,8 @@ class _CallPageState extends ConsumerState<CallPage>
     _finish();
   }
 
+  /// Đóng UI/phiên theo một đường duy nhất; guard để không chạy lặp khi
+  /// nhiều sự kiện (từ chối, cúp máy, timeout) cùng về một lúc.
   void _finish({String? message}) {
     if (!mounted || _phase == _CallPhase.ended) return;
     _ringTimeout?.cancel();

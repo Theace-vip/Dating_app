@@ -11,6 +11,9 @@ import 'package:dating_app/data/repositories/catalog_repository.dart';
 import 'package:dating_app/features/call/rtc_session.dart';
 import 'package:dating_app/features/chat/chat_detail_page.dart';
 
+/// Voice Game: ghép 2 người ẩn danh qua hàng đợi `mode=voice`, sau đó thoại
+/// trực tiếp bằng WebRTC. Server giữ vai trò quyết định thời lượng, quyền vào
+/// phiên và chuyển tiếp SDP/ICE; media không đi qua backend.
 enum _VoiceStatus { searching, matched, ended }
 
 /// Voice Game THẬT: ghép 2 người ẩn danh qua hàng đợi server (mode=voice)
@@ -67,6 +70,7 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
       return;
     }
 
+    // ===== Đồng bộ sự kiện ghép đôi và WebRTC =====
     _subs.add(
       socket.on('soul:matched').listen((data) async {
         if (!mounted) return;
@@ -193,6 +197,7 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     Future.microtask(_loadOptionsAndQueue);
   }
 
+  /// Tải thời lượng voice từ backend rồi mới vào hàng đợi voice riêng.
   Future<void> _loadOptionsAndQueue() async {
     try {
       final catalog = await ref.read(appCatalogProvider.future);
@@ -211,6 +216,8 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     }
   }
 
+  /// Tạo phiên WebRTC cho cặp đang ghép. Chỉ bên `initiator` tạo offer;
+  /// bên còn lại chờ offer rồi trả answer qua `soul:rtc:signal`.
   Future<void> _startRtc({required bool initiator}) async {
     await _disposeSession();
     try {
@@ -240,12 +247,15 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     }
   }
 
+  /// Đóng peer connection và track media khi rời phiên hoặc tìm người mới.
   Future<void> _disposeSession() async {
     final s = _session;
     _session = null;
     await s?.dispose();
   }
 
+  /// Đồng hồ hiển thị theo `endsAt` của server; hết giờ chỉ là tín hiệu xin
+  /// xác nhận, trạng thái cuối vẫn do `soul:time-ended` quyết định.
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -264,6 +274,8 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     });
   }
 
+  /// Xin gia hạn phiên voice sau khi hết giờ; server kiểm tra thành viên
+  /// và trạng thái phiên trước khi cấp thêm thời gian.
   Future<void> _continueChat() async {
     if (_sessionId == null || !await ensureOnline(context, ref) || !mounted) {
       return;
@@ -278,6 +290,7 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     socket.emit('soul:continue', {'sessionId': _sessionId});
   }
 
+  /// Đóng phiên thoại hiện tại rồi vào lại hàng đợi voice.
   Future<void> _findAnother() async {
     if (!await ensureOnline(context, ref) || !mounted) return;
     final socket = ref.read(socketProvider);
@@ -299,6 +312,7 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     if (_endSheetOpen) Navigator.of(context).pop();
   }
 
+  /// Sheet kết thúc: gia hạn, hiện danh tính hoặc tìm người mới.
   void _showEndSheet() {
     _endSheetOpen = true;
     showModalBottomSheet(
@@ -415,6 +429,7 @@ class _VoiceGamePageState extends ConsumerState<VoiceGamePage>
     super.dispose();
   }
 
+  // ===== Giao diện: trạng thái ghép đôi, đồng hồ và điều khiển mic/loa =====
   @override
   Widget build(BuildContext context) {
     final minutes = _remaining ~/ 60;

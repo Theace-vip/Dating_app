@@ -3,6 +3,13 @@ import db, { getUser, publicUser, ensureConversation, addFriendship } from './db
 import { verifyAccessToken, randomId } from './security.js';
 import { APP_CATALOG, chargeRoomGift } from './catalog.js';
 
+/**
+ * Lớp realtime của SoulMate: presence, Soul Game, chat, phòng tiệc và WebRTC signaling.
+ * Trạng thái phiên (hàng đợi, cuộc gọi, thành viên phòng) chỉ nằm trong bộ nhớ tiến trình;
+ * server là nơi quyết định thời gian, quyền tham gia và giá trị giao dịch.
+ */
+
+// ===== Trạng thái runtime dùng chung cho mọi kết nối =====
 let io = null;
 const presence = new Map();     // userId -> Set<socketId>
 const roomMembers = new Map();  // roomId -> Set<userId>
@@ -11,6 +18,7 @@ const soulSessions = new Map(); // sessionId -> { a, b, revealed, room, mode }
 const rtcRoomPeers = new Map();  // roomId -> Set<userId> đang bật mic WebRTC
 const activeCalls = new Map(); // callId -> caller/callee + trạng thái signaling
 
+// ===== Helper presence và phát sự kiện =====
 export function isOnline(userId) {
   const s = presence.get(userId);
   return !!s && s.size > 0;
@@ -40,16 +48,20 @@ function profileForStranger(userId) {
   return { avatar: u.avatar, age: u.age, gender: u.gender };
 }
 
+// ===== Helper vòng đời Soul Game =====
+// Mỗi socket chỉ có tối đa một entry trong hàng đợi; xóa trước khi ghép lại để tránh trùng.
 function removeFromQueue(socketId) {
   const i = queue.findIndex((q) => q.socketId === socketId);
   if (i >= 0) queue.splice(i, 1);
 }
 
+// Kiểm tra cả bộ nhớ thành viên lẫn room thật của Socket.IO: client không thể tự nhận là member.
 function isRoomMember(socket, roomId) {
   return socket.data.rooms?.has(roomId) === true &&
     socket.rooms.has(`room:${roomId}`);
 }
 
+// Rời phiên: dọn timer, xóa session và báo đối phương để họ không chờ vô hạn.
 function leaveSoul(socket) {
   const sessionId = socket.data.soulSessionId;
   if (!sessionId) return;
@@ -64,6 +76,7 @@ function leaveSoul(socket) {
   socket.to(session.room).emit('soul:partner-left', { sessionId });
 }
 
+// Mở nút tim đúng một lần cho mỗi phiên, dù đến từ timer hay từ đủ 5 tin nhắn.
 function makeSoulHeartAvailable(sessionId, session, reason) {
   if (soulSessions.get(sessionId) !== session || session.completed ||
       session.revealed || session.heartAvailable) return;
@@ -119,6 +132,7 @@ function announceSoulExpiry(sessionId, session, now = Date.now()) {
   return true;
 }
 
+// Client chỉ được *yêu cầu* kết thúc; helper này vẫn kiểm tra membership và mốc giờ server.
 function expireSoulSession(socket, sessionId) {
   const session = soulSessions.get(sessionId);
   const isMember = session &&
@@ -127,13 +141,15 @@ function expireSoulSession(socket, sessionId) {
   announceSoulExpiry(sessionId, session);
 }
 
+// ===== Khởi tạo Socket.IO và xác thực handshake =====
 export function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: { origin: '*' },
     maxHttpBufferSize: 64 * 1024, // chặn payload quá lớn
   });
 
-  // Xác thực bằng access token (header auth hoặc query token)
+  // Xác thực bằng access token (header auth hoặc query token).
+  // Handshake sai token bị từ chối trước khi bất kỳ handler nghiệp vụ nào chạy.
   io.use((socket, next) => {
     const token =
       socket.handshake.auth?.token ||
@@ -152,6 +168,7 @@ export function initSocket(httpServer) {
     const userId = socket.data.userId;
 
     // ===== Presence =====
+    // Một user có thể mở nhiều thiết bị/tab: chỉ báo online/offline khi socket đầu tiên/cuối cùng đổi trạng thái.
     if (!presence.has(userId)) presence.set(userId, new Set());
     presence.get(userId).add(socket.id);
     socket.join(`user:${userId}`);
@@ -221,6 +238,7 @@ export function initSocket(httpServer) {
       }
     });
 
+    // ===== Soul Game: tương tác trong phiên =====
     // Mỗi thao tác gameplay đều xác thực thành viên và trạng thái trên backend.
     socket.on('soul:heart:unlock', ({ sessionId } = {}) => {
       const session = soulSessions.get(sessionId);
@@ -234,6 +252,7 @@ export function initSocket(httpServer) {
       makeSoulHeartAvailable(sessionId, session, 'time');
     });
 
+    // Tin nhắn chỉ đi trong room của phiên, bị giới hạn độ dài và do server đếm để mở nút tim.
     socket.on('soul:message', ({ sessionId, content } = {}) => {
       const session = soulSessions.get(sessionId);
       if (!session || !session.room || session.completed || session.timeExpired) return;
@@ -253,6 +272,7 @@ export function initSocket(httpServer) {
       }
     });
 
+    // Hiện danh tính là thao tác kết thúc phiên: tạo hội thoại + tình bạn trước khi gửi thông tin thật.
     socket.on('soul:reveal', ({ sessionId } = {}) => {
       const session = soulSessions.get(sessionId);
       const isA = session?.a.socketId === socket.id;
@@ -280,6 +300,7 @@ export function initSocket(httpServer) {
       });
     });
 
+    // Mỗi bên chỉ thích một lần; đủ hai lượt mới hiện danh tính và chuyển sang chat 1-1.
     socket.on('soul:like', ({ sessionId } = {}) => {
       const session = soulSessions.get(sessionId);
       const isA = session?.a.socketId === socket.id;
@@ -328,6 +349,7 @@ export function initSocket(httpServer) {
       expireSoulSession(socket, sessionId);
     });
 
+    // Chỉ được gia hạn sau khi phiên đã hết giờ thật và chưa lộ danh tính.
     socket.on('soul:continue', ({ sessionId } = {}) => {
       const session = soulSessions.get(sessionId);
       const isMember = session &&
@@ -360,6 +382,7 @@ export function initSocket(httpServer) {
     });
 
     // ===== WebRTC signaling: Voice Game (1-1 trong phiên Soul) =====
+    // Chỉ chuyển tiếp SDP/ICE giữa đúng hai socket của phiên, không broadcast ra ngoài.
     socket.on('soul:rtc:signal', ({ sessionId, data } = {}) => {
       const session = soulSessions.get(sessionId);
       if (!session) return;
@@ -375,6 +398,7 @@ export function initSocket(httpServer) {
     // ===== WebRTC signaling: gọi thoại/video 1-1 =====
     // Chỉ hai user của lời mời hợp lệ mới được accept/reject, hangup hoặc trao đổi SDP/ICE.
     // Lưu trạng thái cuộc gọi trong memory để xác thực cặp caller/callee trước signaling.
+    // Tạo cuộc gọi mới: kiểm tra người nhận tồn tại, không bận và đang online.
     socket.on('call:invite', ({ to, callId, isVideo } = {}) => {
       if (typeof to !== 'string' || typeof callId !== 'string' ||
           to === userId || !getUser(to) || activeCalls.has(callId) ||
@@ -434,6 +458,7 @@ export function initSocket(httpServer) {
         });
       }
     });
+    // Chỉ đúng người được mời (callee) mới bấm nghe; đổi trạng thái sang accepted và dừng timer đổ chuông.
     socket.on('call:accept', ({ to, callId } = {}) => {
       const call = activeCalls.get(callId);
       if (!call || call.status !== 'ringing' || call.calleeId !== userId ||
@@ -464,6 +489,7 @@ export function initSocket(httpServer) {
         });
       }
     });
+    // Từ chối chỉ hợp lệ khi cuộc gọi còn ringing và người gửi là callee.
     socket.on('call:reject', ({ to, callId } = {}) => {
       const call = activeCalls.get(callId);
       if (!call || call.status !== 'ringing' || call.calleeId !== userId ||
@@ -477,6 +503,7 @@ export function initSocket(httpServer) {
         });
       }
     });
+    // Cúp máy: chỉ hai đầu của cuộc gọi được kết thúc và nhận thông báo.
     socket.on('call:hangup', ({ to, callId } = {}) => {
       const call = activeCalls.get(callId);
       if (!call || ![call.callerId, call.calleeId].includes(userId) ||
@@ -502,6 +529,8 @@ export function initSocket(httpServer) {
         });
       }
     });
+    // ===== Dọn dẹp khi socket ngắt =====
+    // Chỉ kết thúc cuộc gọi khi *toàn bộ* socket của một phía đã mất kết nối.
     socket.on('disconnecting', () => {
       for (const [callId, call] of activeCalls) {
         call.callerSocketIds.delete(socket.id);
@@ -521,6 +550,7 @@ export function initSocket(httpServer) {
     });
 
     // ===== WebRTC signaling: mic trong phòng tiệc (mesh) =====
+    // Mesh: người vào sau nhận danh sách peer đang bật mic; người đang trong phòng nhận thông báo có peer mới.
     socket.on('room:rtc:join', ({ roomId } = {}) => {
       if (typeof roomId !== 'string' || !isRoomMember(socket, roomId)) return;
       const existing = [...(rtcRoomPeers.get(roomId) || [])]
@@ -541,12 +571,14 @@ export function initSocket(httpServer) {
       });
     });
 
+    // Chỉ thành viên phòng mới được rời signaling; nếu đang bật mic thì mới có peer cần dọn.
     socket.on('room:rtc:leave', ({ roomId } = {}) => {
       if (typeof roomId !== 'string' || !isRoomMember(socket, roomId)) return;
       removeRtcPeer(roomId, userId);
       socket.to(`room:${roomId}`).emit('room:rtc:left', { roomId, userId });
     });
 
+    // SDP/ICE của mic phòng chỉ đi giữa hai user đang là thành viên và đang bật mic.
     socket.on('room:rtc:signal', ({ roomId, to, data } = {}) => {
       if (typeof roomId !== 'string' || typeof to !== 'string' ||
           !isRoomMember(socket, roomId) || !rtcRoomPeers.get(roomId)?.has(userId) ||
@@ -559,7 +591,8 @@ export function initSocket(httpServer) {
       }
     });
 
-    // ===== Chat: đang gõ =====
+    // ===== Chat 1-1: tín hiệu đang gõ =====
+    // Chỉ thành viên của hội thoại mới được phát "đang gõ" cho đối phương.
     socket.on('chat:typing', ({ conversationId } = {}) => {
       if (typeof conversationId !== 'string') return;
       const c = db.prepare('SELECT * FROM conversations WHERE id = ?')
@@ -570,6 +603,7 @@ export function initSocket(httpServer) {
     });
 
     // ===== Phòng tiệc =====
+    // Join là idempotent: ghi nhận user vào room và broadcast lại danh sách thành viên hiện tại.
     socket.on('room:join', ({ roomId } = {}) => {
       if (typeof roomId !== 'string') return;
       if (!db.prepare('SELECT 1 FROM rooms WHERE id = ?').get(roomId)) {
@@ -592,6 +626,7 @@ export function initSocket(httpServer) {
       leaveRoom(socket, roomId);
     });
 
+    // Tin nhắn phòng được lưu DB trước rồi mới broadcast để người mới vào vẫn đọc được lịch sử.
     socket.on('room:message', ({ roomId, content } = {}) => {
       if (typeof roomId !== 'string' || !isRoomMember(socket, roomId)) return;
       const text = String(content || '').trim().slice(0, 2000);
@@ -611,6 +646,7 @@ export function initSocket(httpServer) {
       });
     });
 
+    // Thả tim chỉ gửi cho người khác trong phòng, không lưu DB.
     socket.on('room:heart', ({ roomId } = {}) => {
       if (typeof roomId !== 'string' || !isRoomMember(socket, roomId)) return;
       const u = getUser(userId);
@@ -650,6 +686,7 @@ export function initSocket(httpServer) {
     });
 
     // ===== Ngắt kết nối =====
+    // Dọn hàng đợi, phiên Soul, presence và mọi phòng mà socket này đang tham gia.
     socket.on('disconnect', () => {
       removeFromQueue(socket.id);
       const wasInSession = socket.data.soulSessionId;
@@ -675,6 +712,7 @@ export function initSocket(httpServer) {
   return io;
 }
 
+// ===== Helper dọn dẹp phòng =====
 function removeRtcPeer(roomId, userId) {
   const peers = rtcRoomPeers.get(roomId);
   if (!peers) return;
@@ -685,7 +723,7 @@ function removeRtcPeer(roomId, userId) {
 function leaveRoom(socket, roomId, notify = true) {
   socket.leave(`room:${roomId}`);
   socket.data.rooms?.delete(roomId);
-  // Room voice membership is per user: clean it only after the last socket leaves.
+  // Thành viên mic tính theo user: chỉ dọn khi socket cuối cùng của user đã rời phòng.
   const stillHere = [...(io.sockets.sockets.values())]
     .some((s) => s.data.userId === socket.data.userId && isRoomMember(s, roomId));
   if (!stillHere && rtcRoomPeers.get(roomId)?.has(socket.data.userId)) {

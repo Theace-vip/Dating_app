@@ -4,14 +4,22 @@ import { DatabaseSync } from 'node:sqlite';
 import { serverRoot } from './config.js';
 import { hashPassword, randomId } from './security.js';
 
+// Database nằm trong server/data (không commit lên Git).
+// WAL cho phép đọc/ghi song song tốt hơn và không chặn khi server đang chạy.
 const dataDir = path.join(serverRoot, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new DatabaseSync(path.join(dataDir, 'soulmate.db'));
 
 db.exec('PRAGMA journal_mode = WAL;');
+// Bật khóa ngoại để xóa user/bài/phòng sẽ dọn luôn dữ liệu liên quan.
 db.exec('PRAGMA foreign_keys = ON;');
 
+// Schema chia thành 4 nhóm bảng, kèm index tối ưu truy vấn theo thời gian:
+// 1. users + refresh_tokens: tài khoản, mật khẩu hash và phiên đăng nhập.
+// 2. friendships + conversations + messages: bạn bè và chat 1-1.
+// 3. posts + post_likes + comments: bảng tin, like và bình luận.
+// 4. rooms + room_messages: phòng nhóm và tin nhắn phòng.
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -117,10 +125,12 @@ CREATE INDEX IF NOT EXISTS idx_room_messages ON room_messages(room_id, created_a
 `);
 
 // ===== Seed dữ liệu mẫu (chỉ chạy khi DB trống) =====
+// Chỉ seed lần đầu để không ghi đè dữ liệu thật khi khởi động lại server.
 function seed() {
   const { n } = db.prepare('SELECT COUNT(*) AS n FROM users').get();
   if (n > 0) return;
 
+  // Hai tài khoản demo dùng chung mật khẩu, đủ để thử chat/gọi/Soul Game.
   const demoPwd = hashPassword('Demo@1234');
   const users = [
     {
@@ -142,6 +152,7 @@ function seed() {
   `);
   for (const u of users) insertUser.run({ ...u, pwd: demoPwd });
 
+  // Bài viết mẫu + like để feed có nội dung ngay lần chạy đầu.
   const post = db.prepare(`
     INSERT INTO posts (id, user_id, content, media, shares_count, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -155,6 +166,7 @@ function seed() {
   like.run('p_seed1', 'u_demo2');
   like.run('p_seed2', 'u_demo1');
 
+  // Ba phòng mẫu thuộc các chủ đề khác nhau.
   const room = db.prepare(`
     INSERT INTO rooms (id, name, host_id, topic, background_emoji) VALUES (?, ?, ?, ?, ?)
   `);
@@ -167,6 +179,8 @@ function seed() {
 
 seed();
 
+// Chỉ trả các trường an toàn cho client; không bao giờ lộ password_hash,
+// failed_attempts hay locked_until.
 export function publicUser(u) {
   if (!u) return null;
   return {
@@ -187,6 +201,7 @@ export function publicUser(u) {
   };
 }
 
+// Helper tra cứu user; dùng nội bộ server nên trả đầy đủ cột.
 export function getUser(id) {
   return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
 }
@@ -195,7 +210,8 @@ export function getUserByEmail(email) {
   return db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 }
 
-/** Tạo (hoặc lấy) hội thoại giữa 2 user — thứ tự cặp được sắp để tránh trùng */
+/** Tạo (hoặc lấy) hội thoại giữa 2 user — thứ tự cặp được sắp để tránh trùng.
+ *  Nhờ sắp xếp user_a < user_b, cặp (A,B) và (B,A) luôn trỏ về cùng một row. */
 export function ensureConversation(userA, userB) {
   const [a, b] = [userA, userB].sort();
   let row = db.prepare('SELECT * FROM conversations WHERE user_a = ? AND user_b = ?').get(a, b);

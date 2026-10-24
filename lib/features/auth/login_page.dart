@@ -7,6 +7,9 @@ import 'package:dating_app/data/repositories/auth_repository.dart';
 import 'package:dating_app/shared/server_host.dart';
 import 'package:dating_app/shared/widgets/app_widgets.dart';
 
+/// Màn hình đăng nhập/đăng ký bằng email + mật khẩu qua REST API.
+/// Cùng một form chuyển đổi giữa hai chế độ; thành công sẽ cập nhật AuthState
+/// để router tự điều hướng vào trang chủ hoặc màn hoàn thiện hồ sơ.
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
   @override
@@ -35,6 +38,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  /// Validate phía client trước, sau đó gọi login/register ở AuthNotifier.
+  /// Lỗi kết nối được chuyển thành dialog đổi địa chỉ máy chủ thay vì chỉ báo lỗi.
   Future<void> _submit() async {
     if (!await ensureOnline(context, ref)) return;
     final email = _emailController.text.trim();
@@ -78,11 +83,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // Thành công -> router tự điều hướng (cập nhật auth state)
   }
 
+  /// Các phương thức đăng nhập khác (SĐT/OTP, Google) chưa tích hợp backend.
   void _soon() {
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Tính năng sắp ra mắt')));
   }
 
+  // ===== Giao diện: logo, form đăng nhập/đăng ký và các lựa chọn khác =====
   @override
   Widget build(BuildContext context) {
     return Scaffold(

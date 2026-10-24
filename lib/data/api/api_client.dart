@@ -25,6 +25,10 @@ const secureStorage = FlutterSecureStorage();
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
+/// Client HTTP dùng chung cho toàn app.
+/// - Tự gắn Bearer token vào mọi request.
+/// - Gặp 401 thì làm mới token đúng một lần rồi gửi lại request gốc.
+/// - Token được lưu trong secure storage, không nằm trong bộ nhớ thường trực.
 class ApiClient {
   ApiClient() {
     _dio = Dio(BaseOptions(
@@ -33,7 +37,8 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 12),
       contentType: Headers.jsonContentType,
     ));
-    // Lớp 401: tự làm mới access token (single-flight) rồi thử lại request gốc
+    // Lớp 401: tự làm mới access token (single-flight) rồi thử lại request gốc.
+    // Bỏ qua chính endpoint refresh và request đã retry để tránh vòng lặp vô hạn.
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         if (_accessToken != null) {
@@ -59,6 +64,7 @@ class ApiClient {
               return handler.next(e);
             }
           }
+          // Refresh thất bại -> phiên thực sự hết hạn, xóa token và báo cho AuthNotifier.
           await clearSession();
           onSessionExpired?.call();
         }
@@ -85,6 +91,7 @@ class ApiClient {
     _refreshToken = await secureStorage.read(key: kRefreshKey);
   }
 
+  /// Ghi token vào bộ nhớ và secure storage; luôn lưu cặp access/refresh cùng lúc.
   Future<void> _saveTokens(String access, String refresh) async {
     _accessToken = access;
     _refreshToken = refresh;
@@ -99,6 +106,8 @@ class ApiClient {
     await secureStorage.delete(key: kRefreshKey);
   }
 
+  /// Single-flight: nhiều request cùng gặp 401 chỉ tạo một lần gọi refresh,
+  /// các request còn lại chờ chung kết quả để token không bị xoay chồng chéo.
   Future<bool> _refreshTokens() async {
     if (_refreshToken == null) return false;
     if (_refreshing != null) return _refreshing!.future;

@@ -11,6 +11,9 @@ import 'package:dating_app/features/profile/profile_page.dart';
 import 'package:dating_app/features/matching/soul_game_page.dart';
 import 'package:dating_app/features/matching/voice_game_page.dart';
 
+/// Khung chính sau khi đăng nhập: 5 tab (chat, khám phá, feed, phòng, cá nhân).
+/// Dùng IndexedStack để giữ state/scroll của từng tab khi chuyển qua lại;
+/// dữ liệu nền được tải một lần và feed realtime được đăng ký tại đây.
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -21,6 +24,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
 
+  // Giữ nguyên instance của từng tab; IndexedStack chỉ ẩn/hiện thay vì dựng lại.
   final List<Widget> _pages = const [
     ChatListPage(),
     ExplorePage(),
@@ -32,7 +36,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Tải dữ liệu THẬT từ server (hội thoại, feed, phòng)
+    // Tải dữ liệu thật từ server một lần cho cả phiên làm việc.
+    // feedRealtimeProvider lắng nghe socket để cập nhật bài viết/số đếm từ thiết bị khác.
     Future.microtask(() {
       if (!mounted) return;
       ref.read(chatProvider.notifier).load();
@@ -43,6 +48,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
   }
 
+  // ===== Khung giao diện: appbar mạng, nội dung tab và bottom navigation =====
   @override
   Widget build(BuildContext context) {
     return Scaffold(

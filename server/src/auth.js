@@ -8,6 +8,8 @@ import {
 import config from './config.js';
 
 // ===== middleware xác thực Bearer token =====
+// Mọi API nghiệp vụ đều đi qua đây; chỉ cần verify chữ ký JWT và gắn userId
+// vào request, phần phân quyền chi tiết do từng route xử lý.
 export function authMiddleware(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -22,6 +24,8 @@ export function authMiddleware(req, res, next) {
 }
 
 // ===== helper phát hành token =====
+// Access token ngắn hạn ký JWT; refresh token dài hạn chỉ lưu hash trong DB.
+// familyId giữ nguyên khi xoay token để phát hiện token cũ bị dùng lại.
 export function issueTokenPair(userId, familyId) {
   const user = getUser(userId);
   const accessToken = signAccessToken(user);
@@ -40,6 +44,8 @@ export function issueTokenPair(userId, familyId) {
   };
 }
 
+// Thu hồi toàn bộ refresh token cùng một chuỗi phiên (family).
+// Dùng khi phát hiện token đã xoay bị dùng lại — coi như phiên bị đánh cắp.
 function revokeFamily(familyId) {
   db.prepare('UPDATE refresh_tokens SET revoked = 1 WHERE family_id = ?').run(familyId);
 }
@@ -124,6 +130,7 @@ router.post('/login', loginLimiter, (req, res) => {
     return res.status(401).json({ error: 'bad_credentials', message: 'Email hoặc mật khẩu không đúng' });
   }
 
+  // Khóa tạm sau nhiều lần sai liên tiếp, tránh dò mật khẩu qua API.
   const now = Date.now();
   if (user.locked_until && user.locked_until > now) {
     const mins = Math.ceil((user.locked_until - now) / 60000);
@@ -133,6 +140,7 @@ router.post('/login', loginLimiter, (req, res) => {
     });
   }
 
+  // Sai mật khẩu: tăng bộ đếm; đủ 5 lần thì khóa 15 phút.
   if (!verifyPassword(password, user.password_hash)) {
     const attempts = user.failed_attempts + 1;
     const patch = { failed_attempts: attempts, locked_until: null };
@@ -166,6 +174,8 @@ router.post('/refresh', (req, res) => {
     return res.status(401).json({ error: 'refresh_expired' });
   }
 
+  // Xoay token: token cũ bị thu hồi ngay, token mới nằm cùng family.
+  // Nếu token cũ xuất hiện lại lần nữa, nhánh row.revoked phía trên sẽ khóa cả family.
   db.prepare('UPDATE refresh_tokens SET revoked = 1 WHERE id = ?').run(row.id);
   const tokens = issueTokenPair(row.user_id, row.family_id);
   const user = publicUser(getUser(row.user_id));
@@ -173,6 +183,7 @@ router.post('/refresh', (req, res) => {
 });
 
 // ===== Đăng xuất (thu hồi refresh token) =====
+// Client vẫn phải xóa token cục bộ; server thu hồi refresh để không gia hạn được nữa.
 router.post('/logout', (req, res) => {
   const { refreshToken } = req.body || {};
   if (typeof refreshToken === 'string' && refreshToken) {

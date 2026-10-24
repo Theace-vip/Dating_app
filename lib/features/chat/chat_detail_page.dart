@@ -15,6 +15,10 @@ import 'package:dating_app/shared/image_tools.dart';
 import 'package:dating_app/shared/widgets/app_widgets.dart';
 import 'package:dating_app/features/call/call_page.dart';
 
+/// Màn hình chat 1-1.
+/// Luồng chính: tải lịch sử -> nghe socket cho tin mới/sửa/xóa/typing -> gửi tin.
+/// Tin gửi lỗi được đưa vào outbox để tự gửi lại khi có mạng; cuộn lên đầu
+/// sẽ nạp thêm tin cũ và giữ nguyên vị trí đang đọc.
 class ChatDetailPage extends ConsumerStatefulWidget {
   final String conversationId;
   final String partnerId;
@@ -44,6 +48,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   @override
   void initState() {
     super.initState();
+    // ===== Tải lịch sử và đánh dấu đã đọc =====
     final notifier = ref.read(messagesProvider(widget.conversationId).notifier);
     notifier.load();
     // Pushing this route can happen while the previous page is building. Defer
@@ -53,10 +58,11 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
       ref.read(chatProvider.notifier).clearUnread(widget.conversationId);
     });
 
+    // ===== Đồng bộ tin nhắn realtime =====
     final socket = ref.read(socketProvider);
     final myId = ref.read(currentUserProvider).id;
 
-    // Tin nhắn realtime (server echo cả tin mình gửi -> thay optimistic)
+    // Server echo lại cả tin mình gửi, nhờ vậy bản optimistic được thay bằng bản thật.
     _subs.add(
       socket.on('chat:message').listen((data) {
         if (!mounted) return;
@@ -97,7 +103,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
       }),
     );
 
-    // Đối phương đang gõ
+    // ===== Trạng thái "đang gõ" =====
+    // Tự tắt sau 3 giây nếu không nhận thêm sự kiện, tránh treo chữ "đang gõ...".
     _subs.add(
       socket.on('chat:typing').listen((data) {
         if (!mounted) return;
@@ -115,6 +122,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     _scrollController.addListener(_onScroll);
   }
 
+  /// Cuộn gần đầu danh sách thì nạp thêm tin cũ.
+  /// Sau khi chèn tin vào đầu, bù lại scroll offset để màn hình không bị nhảy.
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels > 200) return;
@@ -143,6 +152,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     super.dispose();
   }
 
+  /// Gửi tín hiệu "đang gõ" tối đa 2 giây một lần để không spam socket.
   void _notifyTyping() {
     final text = _controller.text;
     final now = DateTime.now();
@@ -156,6 +166,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     });
   }
 
+  /// Gửi tin: xóa ô nhập ngay, gửi qua repository; thất bại thì đưa vào outbox
+  /// để tự động gửi lại khi mạng trở lại.
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -180,6 +192,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     }
   }
 
+  /// Chọn ảnh -> nén/upload -> gửi tin loại image; ảnh dùng URL do server trả về.
   Future<void> _sendImage() async {
     if (!await ensureOnline(context, ref)) return;
     if (!mounted) return;

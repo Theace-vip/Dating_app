@@ -13,6 +13,8 @@ final socketProvider = Provider<SocketService>((ref) => SocketService());
 class SocketService {
   io.Socket? _socket;
   bool _connecting = false;
+  // Mỗi event có một broadcast controller riêng để nhiều widget cùng nghe
+  // mà không tranh nhau một Stream duy nhất.
   final Map<String, StreamController<dynamic>> _controllers = {};
 
   bool get connected => _socket?.connected ?? false;
@@ -41,6 +43,8 @@ class SocketService {
             .enableReconnection()
             .build(),
       );
+      // Danh sách event server phát xuống; thêm event mới ở đây thì [on]
+      // mới nhận được dữ liệu tương ứng.
       final events = [
         'chat:message',
         'chat:message-edited',
@@ -88,6 +92,8 @@ class SocketService {
       for (final e in events) {
         _socket!.on(e, (data) => _relay(e, data));
       }
+      // Các event vòng đời được chuẩn hoá thành stream để UI/theo dõi mạng
+      // không phải phụ thuộc trực tiếp vào socket.io.
       _socket!.onConnect((_) => _relay('connect', true));
       _socket!.onDisconnect((_) => _relay('connect', false));
       _socket!.onConnectError((err) => _relay('connect_error', err));
@@ -101,11 +107,13 @@ class SocketService {
     _socket?.emit(event, data);
   }
 
+  /// Đóng kết nối nhưng giữ các stream để lần connect sau vẫn dùng lại được.
   void disconnect() {
     _socket?.dispose();
     _socket = null;
   }
 
+  /// Dọn hẳn service: đóng socket và tất cả stream (dùng khi app/provider bị hủy).
   void dispose() {
     disconnect();
     for (final c in _controllers.values) {

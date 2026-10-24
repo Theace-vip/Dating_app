@@ -1,7 +1,12 @@
+// Model dùng chung cho REST và Socket.IO. Các factory fromJson đọc null-safe
+// để payload cũ hoặc thiếu trường không làm crash UI.
+
+// ===== Tài khoản =====
 enum Gender { male, female, other }
 
 enum MessageType { text, image, voice, emoji }
 
+/// Hồ sơ người dùng; `avatar` có thể là emoji hoặc URL ảnh upload.
 class UserModel {
   final String id;
   final String name;
@@ -103,6 +108,8 @@ class UserModel {
   }
 }
 
+// ===== Chat 1-1 =====
+/// Một tin nhắn; `type` quyết định UI render text/ảnh/voice.
 class MessageModel {
   final String id;
   final String conversationId;
@@ -143,7 +150,7 @@ class MessageModel {
       conversationId: json['conversationId'] as String? ?? '',
       senderId: json['senderId'] as String? ?? '',
       content: content,
-      // Compat: older server socket events incorrectly labelled uploaded images as text.
+      // Tương thích event cũ: ảnh upload từng bị server gắn nhầm type=text.
       type: parsedType == MessageType.text && isUploadedImage
           ? MessageType.image
           : parsedType,
@@ -156,6 +163,7 @@ class MessageModel {
   }
 }
 
+/// Một dòng trong danh sách hội thoại, kèm tin cuối và trạng thái online.
 class ConversationModel {
   final String id;
   final String partnerId;
@@ -227,7 +235,8 @@ class ConversationModel {
   );
 }
 
-/// Bản xem trước bài gốc được đính kèm trong một bài đăng lại.
+// ===== Feed =====
+/// Snapshot bài gốc được đính kèm trong một bài đăng lại (repost).
 class OriginalPostModel {
   final String id;
   final String userId;
@@ -341,6 +350,7 @@ class PostModel {
   }
 }
 
+// ===== Phòng tiệc =====
 class RoomModel {
   final String id;
   final String name;
@@ -424,6 +434,7 @@ class CommentModel {
   }
 }
 
+/// Tin nhắn trong phòng tiệc, khác chat 1-1 ở chỗ gắn với `roomId`.
 class RoomMessageModel {
   final String id;
   final String roomId;
