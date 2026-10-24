@@ -330,6 +330,7 @@ APK local có thể đặt trong `dist/` (đã bị `.gitignore` loại trừ, k
 ## 15. Tài liệu
 
 - [`docs/CODE_FLOWS_VI.md`](docs/CODE_FLOWS_VI.md) — **luồng chạy code chi tiết của từng chức năng** (auth, hồ sơ, feed, chat, gọi, Soul Game, phòng, ví).
+- [`docs/FILE_GUIDE_VI.md`](docs/FILE_GUIDE_VI.md) — **danh mục từng thư mục/từng file** và nên sửa ở đâu.
 - [`docs/PROJECT_GUIDE_VI.md`](docs/PROJECT_GUIDE_VI.md) — cấu trúc thư mục, WebRTC, feed/bình luận và các file nên đọc.
 - [`README.md`](README.md) — tài liệu tổng quan này.
 

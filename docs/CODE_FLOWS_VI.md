@@ -5,6 +5,7 @@ Tài liệu này mô tả **cách code chạy** cho từng chức năng: bắt �
 Đọc kèm:
 
 - [`README.md`](../README.md) — tổng quan dự án, cách chạy, danh sách API.
+- [`docs/FILE_GUIDE_VI.md`](FILE_GUIDE_VI.md) — danh mục từng thư mục/file và nên sửa ở đâu.
 - [`docs/PROJECT_GUIDE_VI.md`](PROJECT_GUIDE_VI.md) — cấu trúc thư mục và các luồng lớn.
 
 Quy ước trong tài liệu:

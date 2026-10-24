@@ -2,7 +2,8 @@
 
 Tài liệu dành cho người mới đọc source. Ứng dụng gồm Flutter (giao diện iOS/Android) và backend Node.js + Express + Socket.IO + SQLite.
 
-> Muốn xem luồng chạy chi tiết theo từng chức năng (đăng nhập, feed, chat, gọi, Soul Game, phòng), đọc [`CODE_FLOWS_VI.md`](CODE_FLOWS_VI.md). Flutter gọi API HTTPS để đọc/ghi dữ liệu; Socket.IO dùng cho sự kiện tức thời; WebRTC truyền âm thanh/video trực tiếp giữa hai thiết bị.
+> Muốn xem luồng chạy chi tiết theo từng chức năng (đăng nhập, feed, chat, gọi, Soul Game, phòng), đọc [`CODE_FLOWS_VI.md`](CODE_FLOWS_VI.md).
+> Muốn tra nhanh một thư mục/file dùng để làm gì, đọc [`FILE_GUIDE_VI.md`](FILE_GUIDE_VI.md). Flutter gọi API HTTPS để đọc/ghi dữ liệu; Socket.IO dùng cho sự kiện tức thời; WebRTC truyền âm thanh/video trực tiếp giữa hai thiết bị.
 
 ## 1. Thư mục chính
 
