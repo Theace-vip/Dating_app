@@ -1,0 +1,5 @@
+{
+  "port": 3000,
+  "accessTokenTtlSec": 900,
+  "refreshTokenTtlSec": 2592000
+}
