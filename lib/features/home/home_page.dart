@@ -100,27 +100,27 @@ class _HomePageState extends ConsumerState<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),
             activeIcon: Icon(Icons.chat_bubble),
-            label: 'Trò chuyện',
+            label: 'Tin nhắn',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
             activeIcon: Icon(Icons.explore),
-            label: 'Khám phá',
+            label: 'Khám phá mới',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.timeline_outlined),
             activeIcon: Icon(Icons.timeline),
-            label: 'Feed',
+            label: 'Bảng tin',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.groups_outlined),
             activeIcon: Icon(Icons.groups),
-            label: 'Phòng',
+            label: 'Phòng trò chuyện',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
-            label: 'Cá nhân',
+            label: 'Trang cá nhân',
           ),
         ],
       ),
