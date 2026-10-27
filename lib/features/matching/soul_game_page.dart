@@ -123,7 +123,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
           _likePending = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bạn đã gửi lời thích 💜')),
+          const SnackBar(content: Text('Bạn đã gửi lời thích ❤️')),
         );
       }),
     );
@@ -135,7 +135,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
         if (map['sessionId'] != _sessionId) return;
         setState(() => _partnerLiked = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đối phương đã thích bạn 💜')),
+          const SnackBar(content: Text('Đối phương đã thích bạn ❤️')),
         );
       }),
     );
@@ -170,7 +170,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
           if (_endSheetOpen) navigator.pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Hai bạn đã thích nhau! Chat không giới hạn 💜'),
+              content: Text('Hai bạn đã thích nhau! Chat không giới hạn ❤️'),
             ),
           );
           navigator.pop();
@@ -713,7 +713,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
-                      'Đối phương đã thích bạn 💜',
+                      'Đối phương đã thích bạn ❤️',
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
@@ -721,7 +721,7 @@ class _SoulGamePageState extends ConsumerState<SoulGamePage> {
                   child: _messages.isEmpty
                       ? const Center(
                           child: Text(
-                            'Hãy bắt đầu trò chuyện 💜',
+                            'Hãy bắt đầu trò chuyện ❤️',
                             style: TextStyle(color: Colors.white70),
                           ),
                         )

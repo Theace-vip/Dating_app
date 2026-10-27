@@ -159,7 +159,7 @@ class ExplorePage extends ConsumerWidget {
               loading: () => 'Đang tải thời lượng từ máy chủ...',
               error: (_, _) => 'Không tải được cấu hình trò chơi',
             ),
-            emoji: '💜',
+            emoji: '❤️',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SoulGamePage()),
             ),

@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary brand (hồng tím - Litmatch style)
-  static const Color primary = Color(0xFF7B5BFF);
-  static const Color primaryDark = Color(0xFF5A3FD6);
-  static const Color accent = Color(0xFFFF5C8A);
-  static const Color accentSoft = Color(0xFFFFE3EC);
+  // Primary brand (Hồng cam hoàng hôn - Sunset style)
+  static const Color primary = Color(0xFFFD297B); // Hồng cánh sen rực rỡ
+  static const Color primaryDark = Color(0xFFE0206B); // Hồng đậm
+  static const Color accent = Color(0xFFFF655B); // Cam đào hoàng hôn
+  static const Color accentSoft = Color(0xFFFFEEF1); // Hồng phấn nhẹ nhàng
 
-  // Gradient
+  // Gradient nhận diện thương hiệu
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF9D7BFF), Color(0xFFFF5C8A)],
+    colors: [Color(0xFFFD297B), Color(0xFFFF655B)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient soulGradient = LinearGradient(
-    colors: [Color(0xFF7B5BFF), Color(0xFFB07BFF)],
+    colors: [Color(0xFFFD297B), Color(0xFFFF5864), Color(0xFFFF655B)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   // Neutrals
-  static const Color background = Color(0xFFF7F7FB);
+  static const Color background = Color(0xFFF7F7FA);
   static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF1A1A2E);
+  static const Color textPrimary = Color(0xFF1E1E24);
   static const Color textSecondary = Color(0xFF8A8AA3);
   static const Color divider = Color(0xFFEDEDF2);
 
@@ -34,7 +34,7 @@ class AppColors {
   static const Color online = Color(0xFF2ECC71);
 
   // Chat bubbles
-  static const Color bubbleMine = Color(0xFF7B5BFF);
+  static const Color bubbleMine = Color(0xFFFD297B);
   static const Color bubbleOther = Color(0xFFF0F0F6);
 }
 

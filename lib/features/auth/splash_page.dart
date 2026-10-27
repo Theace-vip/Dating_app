@@ -37,13 +37,27 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('💜', style: TextStyle(fontSize: 72)),
-              SizedBox(height: 16),
-              Text(
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.favorite_rounded,
+                    color: Color(0xFFFD297B),
+                    size: 46,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
                 'SoulMate',
                 style: TextStyle(
                   fontSize: 32,
