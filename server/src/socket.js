@@ -678,7 +678,7 @@ export function initSocket(httpServer) {
         coins: transaction.coins,
         diamonds: transaction.diamonds,
       });
-      socket.to(`room:${roomId}`).emit('room:gift', {
+      io.to(`room:${roomId}`).emit('room:gift', {
         roomId,
         gift: transaction.gift.emoji,
         from: { name: u.name, avatar: u.avatar },

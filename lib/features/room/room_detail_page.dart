@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,7 +26,9 @@ class RoomDetailPage extends ConsumerStatefulWidget {
 
 class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
   final List<RoomMessageModel> _messages = [];
-  final List<_Heart> _hearts = [];
+  final List<_FloatingHeartData> _hearts = [];
+  final List<_GiftAnimationData> _activeGifts = [];
+  final math.Random _random = math.Random();
   final _ctrl = TextEditingController();
   bool _micOn = false; // mic THẬT trong phòng (WebRTC mesh)
   bool _loading = true;
@@ -80,15 +83,19 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
       _spawnHeart();
     }));
 
-    // Quà từ người khác
+    // Quà từ thành viên trong phòng (bao gồm cả chính mình)
     _subs.add(socket.on('room:gift').listen((data) {
       if (!mounted) return;
       final map = data as Map;
       if (map['roomId'] != roomId) return;
-      final from = ((map['from'] ?? {}) as Map)['name'] ?? 'Ai đó';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('$from đã gửi ${map['gift'] ?? '🎁'} cho cả phòng')),
+      final fromMap = (map['from'] ?? {}) as Map;
+      final fromName = fromMap['name']?.toString() ?? 'Ai đó';
+      final fromAvatar = fromMap['avatar']?.toString();
+      final giftEmoji = map['gift']?.toString() ?? '🎁';
+      _triggerGiftEffect(
+        fromName: fromName,
+        fromAvatar: fromAvatar,
+        giftEmoji: giftEmoji,
       );
     }));
 
@@ -202,10 +209,35 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
   }
 
   void _spawnHeart() {
-    final heart = _Heart(key: UniqueKey());
+    final emojis = const ['❤️', '💖', '💕', '💓', '💗', '💘', '💝', '✨'];
+    final heart = _FloatingHeartData(
+      id: UniqueKey().toString(),
+      emoji: emojis[_random.nextInt(emojis.length)],
+      startX: _random.nextDouble() * 40 - 20,
+      sway: (_random.nextDouble() - 0.5) * 60,
+      size: 28.0 + _random.nextDouble() * 14.0,
+      durationMs: 1800 + _random.nextInt(600),
+    );
     setState(() => _hearts.add(heart));
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    Future.delayed(Duration(milliseconds: heart.durationMs + 200), () {
       if (mounted) setState(() => _hearts.remove(heart));
+    });
+  }
+
+  void _triggerGiftEffect({
+    required String fromName,
+    required String? fromAvatar,
+    required String giftEmoji,
+  }) {
+    final gift = _GiftAnimationData(
+      id: UniqueKey().toString(),
+      fromName: fromName,
+      fromAvatar: fromAvatar,
+      giftEmoji: giftEmoji,
+    );
+    setState(() => _activeGifts.add(gift));
+    Future.delayed(const Duration(milliseconds: 3200), () {
+      if (mounted) setState(() => _activeGifts.remove(gift));
     });
   }
 
@@ -408,8 +440,44 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
                               );
                             },
                           ),
-                // Trái tim bay lên khi có người thả tim
-                ..._hearts.map((h) => Positioned.fill(child: Center(child: h))),
+                // Trái tim bay lên kiểu TikTok (bên góc dưới phải)
+                Positioned(
+                  right: 24,
+                  bottom: 12,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 140,
+                      height: 450,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.bottomCenter,
+                        children: _hearts
+                            .map((h) => _TikTokHeartWidget(
+                                  key: ValueKey(h.id),
+                                  data: h,
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ),
+                ),
+                // Hiệu ứng quà tặng nổi bật giữa màn hình
+                if (_activeGifts.isNotEmpty)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: _activeGifts
+                              .map((g) => _GiftBannerWidget(
+                                    key: ValueKey(g.id),
+                                    data: g,
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -488,23 +556,193 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
   }
 }
 
-class _Heart extends StatelessWidget {
-  const _Heart({super.key});
+class _FloatingHeartData {
+  _FloatingHeartData({
+    required this.id,
+    required this.emoji,
+    required this.startX,
+    required this.sway,
+    required this.size,
+    required this.durationMs,
+  });
+  final String id;
+  final String emoji;
+  final double startX;
+  final double sway;
+  final double size;
+  final int durationMs;
+}
+
+class _TikTokHeartWidget extends StatelessWidget {
+  const _TikTokHeartWidget({super.key, required this.data});
+  final _FloatingHeartData data;
 
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 2000),
-      curve: Curves.easeOut,
-      builder: (_, value, child) => Opacity(
-        opacity: 1 - value,
-        child: Transform.translate(
-          offset: Offset(0, -160 * value),
-          child: child,
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: data.durationMs),
+      curve: Curves.easeOutCubic,
+      builder: (_, value, child) {
+        // Lượn sóng sin sang 2 bên
+        final dx = data.startX + math.sin(value * math.pi * 3) * data.sway;
+        final dy = -360.0 * value;
+        // Fade out ở 35% chặng cuối
+        final opacity =
+            value < 0.65 ? 1.0 : ((1.0 - value) / 0.35).clamp(0.0, 1.0);
+        // Scale nở to lúc mới sinh ra rồi ổn định
+        final scale = value < 0.2 ? (0.4 + value * 3.5) : 1.1;
+
+        return Transform.translate(
+          offset: Offset(dx, dy),
+          child: Transform.scale(
+            scale: scale,
+            child: Opacity(
+              opacity: opacity,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Text(
+        data.emoji,
+        style: TextStyle(
+          fontSize: data.size,
+          shadows: const [
+            Shadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2)),
+          ],
         ),
       ),
-      child: const Text('💖', style: TextStyle(fontSize: 44)),
+    );
+  }
+}
+
+class _GiftAnimationData {
+  _GiftAnimationData({
+    required this.id,
+    required this.fromName,
+    required this.fromAvatar,
+    required this.giftEmoji,
+  });
+  final String id;
+  final String fromName;
+  final String? fromAvatar;
+  final String giftEmoji;
+}
+
+class _GiftBannerWidget extends StatelessWidget {
+  const _GiftBannerWidget({super.key, required this.data});
+  final _GiftAnimationData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 3000),
+      curve: Curves.easeInOutBack,
+      builder: (_, value, child) {
+        // Vào từ 0 -> 0.15: Scale phóng to đàn hồi
+        // Giữ nguyên từ 0.15 -> 0.8
+        // Ra từ 0.8 -> 1.0: Bay lên nhẹ và mờ dần
+        double scale = 1.0;
+        double opacity = 1.0;
+        double dy = 0.0;
+
+        if (value < 0.15) {
+          final t = value / 0.15;
+          scale = 0.3 + 0.7 * Curves.easeOutBack.transform(t);
+          opacity = t.clamp(0.0, 1.0);
+        } else if (value > 0.8) {
+          final t = (value - 0.8) / 0.2;
+          opacity = (1.0 - t).clamp(0.0, 1.0);
+          dy = -50.0 * Curves.easeIn.transform(t);
+          scale = 1.0 - 0.2 * t;
+        }
+
+        return Transform.translate(
+          offset: Offset(0, dy),
+          child: Transform.scale(
+            scale: scale,
+            child: Opacity(
+              opacity: opacity,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFF5E7E),
+              Color(0xFFA124F2),
+              Color(0xFF6C5CE7),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white70, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF5E7E).withValues(alpha: 0.5),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppAvatar(avatar: data.fromAvatar ?? '', size: 48),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.fromName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'vừa gửi quà cho cả phòng!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Text(
+              data.giftEmoji,
+              style: const TextStyle(
+                fontSize: 48,
+                shadows: [
+                  Shadow(
+                      color: Colors.black38,
+                      blurRadius: 10,
+                      offset: Offset(0, 3)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -32,6 +32,7 @@ class RtcSession {
   Future<void> _signalQueue = Future<void>.value();
   bool _remoteDescriptionSet = false;
   bool _disposed = false;
+  bool _speakerphone = false;
 
   final _stateCtrl = StreamController<RtcState>.broadcast();
   final _remoteCtrl = StreamController<MediaStream>.broadcast();
@@ -51,11 +52,18 @@ class RtcSession {
   Future<void> start() async {
     _pc = await createPeerConnection({'iceServers': AppConfig.iceServers});
 
-    localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
+    final mediaConstraints = <String, dynamic>{
+      'audio': {
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+        'highpassFilter': true,
+      },
       'video': isVideo,
-    });
+    };
+    localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
     for (final track in localStream!.getTracks()) {
+      track.enabled = true;
       await _pc!.addTrack(track, localStream!);
     }
 
@@ -73,7 +81,14 @@ class RtcSession {
       final stream = event.streams.isNotEmpty ? event.streams.first : null;
       if (stream != null && !_disposed) {
         remoteStream = stream;
+        for (final track in stream.getAudioTracks()) {
+          track.enabled = true;
+          try {
+            track.enableSpeakerphone(_speakerphone);
+          } catch (_) {}
+        }
         if (!_remoteCtrl.isClosed) _remoteCtrl.add(stream);
+        unawaited(setSpeaker(_speakerphone));
       }
     };
 
@@ -82,6 +97,7 @@ class RtcSession {
       switch (state) {
         case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
           _emit(RtcState.connected);
+          unawaited(setSpeaker(_speakerphone));
         case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
         case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
           _emit(RtcState.failed);
@@ -207,10 +223,16 @@ class RtcSession {
   }
 
   Future<void> setSpeaker(bool on) async {
+    _speakerphone = on;
     try {
       await Helper.setSpeakerphoneOn(on);
     } catch (_) {
       // thiết bị không hỗ trợ đổi loa
+    }
+    for (final track in remoteStream?.getAudioTracks() ?? []) {
+      try {
+        track.enableSpeakerphone(on);
+      } catch (_) {}
     }
   }
 
