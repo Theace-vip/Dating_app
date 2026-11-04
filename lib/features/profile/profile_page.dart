@@ -904,7 +904,7 @@ class _FbPostCard extends StatelessWidget {
     if (diff.inMinutes < 1) return 'Vừa xong';
     if (diff.inMinutes < 60) return '${diff.inMinutes} phút';
     if (diff.inHours < 24) return '${diff.inHours} giờ';
-    return '${diff.day} thg ${diff.month}';
+    return '${t.day} thg ${t.month}';
   }
 
   @override
