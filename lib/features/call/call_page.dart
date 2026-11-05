@@ -229,8 +229,9 @@ class _CallPageState extends ConsumerState<CallPage>
             _ringTimeout?.cancel();
             setState(() {
               _phase = _CallPhase.connected;
-              _statusText = 'Đã kết nối';
+              _statusText = 'Đã kết nối ●';
             });
+            unawaited(session.setSpeaker(_speakerOn));
           } else if (s == RtcState.failed) {
             _finish(
               message: 'Kết nối WebRTC thất bại — kiểm tra mạng hoặc quyền micro/camera',
@@ -244,6 +245,7 @@ class _CallPageState extends ConsumerState<CallPage>
           await _remoteRenderer.initialize();
           _remoteRenderer.srcObject = stream;
           if (mounted) setState(() => _remoteReady = true);
+          await session.setSpeaker(_speakerOn);
         }),
       );
 
