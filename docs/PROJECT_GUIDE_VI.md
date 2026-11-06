@@ -1,3 +1,6 @@
+> **Cập nhật cấu trúc:** mã Flutter nay nằm trong `frontend/`, backend trong `backend/`.
+> Đường dẫn `lib/...` trong tài liệu này tương ứng `frontend/lib/...`, và `server/...` là `backend/...`.
+
 # Hướng dẫn cấu trúc và luồng code SoulMate
 
 Tài liệu dành cho người mới đọc source. Ứng dụng gồm Flutter (giao diện iOS/Android) và backend Node.js + Express + Socket.IO + SQLite.

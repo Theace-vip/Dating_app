@@ -1,3 +1,6 @@
+> **Cập nhật cấu trúc:** mã Flutter nay nằm trong `frontend/`, backend trong `backend/`.
+> Đường dẫn `lib/...` trong tài liệu này tương ứng `frontend/lib/...`, và `server/...` là `backend/...`.
+
 # Luồng chạy code theo chức năng — SoulMate
 
 Tài liệu này mô tả **cách code chạy** cho từng chức năng: bắt đầu từ màn hình nào, gọi hàm/provider nào, đi qua API hay Socket.IO, server xử lý ra sao và cuối cùng cập nhật UI/database thế nào.

@@ -1,3 +1,5 @@
+:: sao_luu.bat - Sao luu database SoulMate ra backend/backups/ kem ngay gio,
+:: dung VACUUM INTO nen an toan ca khi server dang chay.
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
@@ -9,13 +11,13 @@ if errorlevel 1 (
   echo [LOI] Khong tim thay Node.js.
   goto :fail
 )
-call node server\scripts\backup_db.js
+call node backend\scripts\backup_db.js
 if errorlevel 1 (
   echo [LOI] Sao luu that bai.
   goto :fail
 )
 echo.
-echo Ban sao luu nam trong: server\backups\
+echo Ban sao luu nam trong: backend\backups\
 echo (tu dong giu 14 ban gan nhat, xoa ban cu)
 echo.
 if /i "%~1"=="--nopause" exit /b 0

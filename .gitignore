@@ -24,14 +24,14 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
-/coverage/
+**/build/
+**/coverage/
 app.*.symbols
 app.*.map.json
-/android/app/debug
-/android/app/profile
-/android/app/release
-/android/build/
+android/app/debug
+android/app/profile
+android/app/release
+android/build/
 **/generated_plugin_registrant.*
 **/generated_plugins.cmake
 .widget_preview/
@@ -48,8 +48,8 @@ linux/flutter/ephemeral/
 .env
 .env.*
 !.env.example
-server/config.json
-server/certs/
+backend/config.json
+backend/certs/
 *.key
 *.pem
 *.jks
@@ -57,11 +57,11 @@ server/certs/
 android/key.properties
 
 # ===== Dữ liệu và file chạy của backend =====
-server/node_modules/
-server/data/
-server/backups/
-server/uploads/
-server/cloudflared.exe
+node_modules/
+backend/data/
+backend/backups/
+backend/uploads/
+backend/cloudflared.exe
 *.db
 *.db-shm
 *.db-wal

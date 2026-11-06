@@ -1,3 +1,6 @@
+> **Cập nhật cấu trúc:** mã Flutter nay nằm trong `frontend/`, backend trong `backend/`.
+> Đường dẫn `lib/...` trong tài liệu này tương ứng `frontend/lib/...`, và `server/...` là `backend/...`.
+
 # Danh mục thư mục và file — SoulMate
 
 Tài liệu này giải thích **từng thư mục, từng file code dùng để làm gì** và khi cần sửa chức năng thì nên vào đâu.

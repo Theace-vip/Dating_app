@@ -63,37 +63,42 @@
 
 ```text
 dating_app/
-├── lib/                         # Flutter client
-│   ├── main.dart                # Khởi động, socket toàn app, cuộc gọi đến, outbox
-│   ├── app/router.dart          # Điều hướng và guard đăng nhập
-│   ├── core/                    # Cấu hình, theme, mạng, pinning
-│   ├── data/
-│   │   ├── api/                 # ApiClient (Dio + refresh token), SocketService
-│   │   ├── models/              # Model JSON
-│   │   └── repositories/        # Riverpod state + gọi API/realtime
-│   ├── features/                # auth, chat, feed, room, matching, call, profile
-│   └── shared/                  # Widget và tiện ích dùng chung
-├── server/
+├── frontend/                    # Flutter client (một project riêng)
+│   ├── lib/
+│   │   ├── main.dart            # Khởi động, socket toàn app, cuộc gọi đến, outbox
+│   │   ├── app/router.dart      # Điều hướng và guard đăng nhập
+│   │   ├── core/                # Cấu hình, theme, mạng, pinning
+│   │   ├── data/
+│   │   │   ├── api/             # ApiClient (Dio + refresh token), SocketService
+│   │   │   ├── models/          # Model JSON
+│   │   │   └── repositories/    # Riverpod state + gọi API/realtime
+│   │   ├── features/            # auth, chat, feed, room, matching, call, profile
+│   │   └── shared/              # Widget và tiện ích dùng chung
+│   ├── assets/                  # SVGA/Lottie dùng cho hiệu ứng
+│   ├── docs/                    # **Tài liệu từng chức năng frontend**
+│   ├── test/                    # Unit test Flutter
+│   ├── integration_test/        # Kiểm thử tích hợp
+│   ├── android|ios|windows|…    # Các nền tảng
+│   └── pubspec.yaml
+├── backend/                     # Node.js + SQLite (một project riêng)
 │   ├── src/
 │   │   ├── index.js             # HTTPS, middleware, mount router/socket
 │   │   ├── auth.js              # register/login/refresh/logout
 │   │   ├── routes.js            # REST API nghiệp vụ
 │   │   ├── socket.js            # Presence, Soul Game, phòng, call signaling
 │   │   ├── catalog.js           # Catalog + quy tắc trừ Xu
-│   │   ├── db.js                # Schema SQLite, seed, helper
+│   │   ├── db.js                # Schema SQLite, tạo tài khoản thử, helper
 │   │   ├── security.js          # scrypt, JWT, token hash
 │   │   └── config.js            # Cấu hình và secret cục bộ
-│   ├── scripts/                 # gen-cert, backup_db, e2e/socket tests
+│   ├── scripts/                 # gen-cert, backup_db, dọn dữ liệu mẫu, e2e tests
 │   ├── certs/                   # Chứng chỉ HTTPS (không commit)
 │   ├── data/                    # soulmate.db + WAL (không commit)
 │   └── uploads/                 # Ảnh người dùng (không commit)
-├── test/                        # Unit test Flutter
-├── integration_test/            # Kiểm thử tích hợp
-├── docs/PROJECT_GUIDE_VI.md     # Hướng dẫn luồng code chi tiết
+├── docs/                        # Tài liệu tổng quan toàn dự án
 ├── cai_dat.bat                  # Cài đặt một lần trên Windows
 ├── ket_noi_internet.bat         # Server + Cloudflare tunnel
 ├── sao_luu.bat                  # Sao lưu database
-└── pubspec.yaml
+└── dist/                        # APK phát hành (không commit)
 ```
 
 ## 5. Bắt đầu nhanh
@@ -107,13 +112,16 @@ dating_app/
 ### 5.1. Chạy backend
 
 ```bash
-cd server
+cd backend
 npm install
 npm run gen-cert     # chỉ lần đầu, tạo cert HTTPS + in SHA-256 pin
 npm start            # https://localhost:3000
 ```
 
-Lần chạy đầu, server tự tạo `server/data/soulmate.db`, seed tài khoản mẫu và sinh `server/config.json` nếu chưa có.
+Lần chạy đầu, server tự tạo `backend/data/soulmate.db`, tạo **hai tài khoản thử**
+và sinh `backend/config.json` nếu chưa có. Không có bài viết/bình luận/phòng mẫu:
+mọi nội dung trong app đến từ người dùng thật (bản cũ có thể dọn bằng
+`node scripts/cleanup_demo_content.js`).
 
 Kiểm tra nhanh:
 
@@ -143,15 +151,15 @@ demo1@soulmate.app / Demo@1234
 demo2@soulmate.app / Demo@1234
 ```
 
-Chỉ được seed khi database trống. Nếu đã có dữ liệu, dùng chức năng đăng ký hoặc xóa database local để seed lại (**chỉ khi chấp nhận mất dữ liệu**).
+Chỉ tạo tài khoản thử khi database trống. Nếu đã có dữ liệu, dùng chức năng đăng ký hoặc xóa database local để tạo lại (**chỉ khi chấp nhận mất dữ liệu**). Không có nội dung mẫu nào được tạo.
 
 ## 6. Cấu hình và bí mật
 
-- `server/config.json` chứa `jwtSecret`, thời hạn token và cổng; **không commit** (đã nằm trong `.gitignore`).
+- `backend/config.json` chứa `jwtSecret`, thời hạn token và cổng; **không commit** (đã nằm trong `.gitignore`).
 - Nếu file không tồn tại, server sinh secret ngẫu nhiên và ghi lại. Đổi/xóa file sẽ làm mọi phiên đăng nhập cũ mất hiệu lực.
-- `server/certs/` chứa private key HTTPS; **không commit**.
-- `server/data/`, `server/uploads/`, `server/backups/`, `dist/` và APK cũng bị loại khỏi Git.
-- Mẫu cấu hình tham khảo: [`server/config.example.json`](server/config.example.json). Sao chép thành `server/config.json` nếu muốn tự đặt cổng/thời hạn token; không cần điền `jwtSecret`, server sẽ tự sinh và ghi lại.
+- `backend/certs/` chứa private key HTTPS; **không commit**.
+- `backend/data/`, `backend/uploads/`, `backend/backups/`, `dist/` và APK cũng bị loại khỏi Git.
+- Mẫu cấu hình tham khảo: [`backend/config.example.json`](backend/config.example.json). Sao chép thành `backend/config.json` nếu muốn tự đặt cổng/thời hạn token; không cần điền `jwtSecret`, server sẽ tự sinh và ghi lại.
 
 ## 7. API
 
@@ -250,9 +258,9 @@ io('https://host:3000', auth: {'token': accessToken});
 
 ## 9. Dữ liệu và sao lưu
 
-- Database: `server/data/soulmate.db` (SQLite, WAL). Các file `soulmate.db-wal` và `soulmate.db-shm` đi kèm khi server chạy.
-- Ảnh upload: `server/uploads/`.
-- Sao lưu: chạy `sao_luu.bat` (hoặc `node server/scripts/backup_db.js`), dùng `VACUUM INTO` để snapshot nhất quán, giữ 14 bản gần nhất trong `server/backups/`.
+- Database: `backend/data/soulmate.db` (SQLite, WAL). Các file `soulmate.db-wal` và `soulmate.db-shm` đi kèm khi server chạy.
+- Ảnh upload: `backend/uploads/`.
+- Sao lưu: chạy `sao_luu.bat` (hoặc `node backend/scripts/backup_db.js`), dùng `VACUUM INTO` để snapshot nhất quán, giữ 14 bản gần nhất trong `backend/backups/`.
 - Khi cần copy database thủ công: dừng server hoặc dùng script backup; không copy mỗi file `.db` khi WAL còn ghi.
 
 ## 10. Kiểm thử
@@ -263,9 +271,9 @@ flutter analyze
 flutter test
 
 # Backend: kiểm tra cú pháp
-node --check server/src/index.js
-node --check server/src/routes.js
-node --check server/src/socket.js
+node --check backend/src/index.js
+node --check backend/src/routes.js
+node --check backend/src/socket.js
 
 # Smoke test cần server đang chạy tại https://localhost:3000
 cd server
@@ -295,7 +303,7 @@ APK local có thể đặt trong `dist/` (đã bị `.gitignore` loại trừ, k
 | Hạng mục | Cách làm |
 |---|---|
 | Mật khẩu | scrypt (N=16384, salt 16 byte), so sánh timing-safe |
-| Access token | JWT 15 phút, ký bằng secret trong `server/config.json` |
+| Access token | JWT 15 phút, ký bằng secret trong `backend/config.json` |
 | Refresh token | 30 ngày, xoay mỗi lần refresh; phát hiện dùng lại và thu hồi cả family |
 | Đăng nhập | Rate limit 15 lần/15 phút theo IP + email; sai 5 lần khóa 15 phút |
 | Truyền dữ liệu | HTTPS self-signed + certificate pinning SHA-256 ở app |
@@ -305,7 +313,7 @@ APK local có thể đặt trong `dist/` (đã bị `.gitignore` loại trừ, k
 | Quyền | Kiểm tra thành viên hội thoại/phòng và chủ sở hữu bài/tin trước khi sửa/xóa |
 | Release APK | R8/ProGuard bật (xem `android/app/proguard-rules.pro`) |
 
-**Không commit** `server/config.json`, `server/certs/`, database, ảnh upload hoặc APK. Nếu secret bị lộ, đổi `jwtSecret` và thu hồi toàn bộ refresh token.
+**Không commit** `backend/config.json`, `backend/certs/`, database, ảnh upload hoặc APK. Nếu secret bị lộ, đổi `jwtSecret` và thu hồi toàn bộ refresh token.
 
 ## 13. Giới hạn hiện tại
 
@@ -325,10 +333,13 @@ APK local có thể đặt trong `dist/` (đã bị `.gitignore` loại trừ, k
 | Tunnel đổi URL | Mỗi lần chạy `ket_noi_internet.bat`, nhập URL mới vào app |
 | Điện thoại cùng WiFi không vào được | Chạy `mo_ket_noi_mang.bat` một lần để mở firewall cổng 3000 |
 | Lỗi `PUB_CACHE` trên Windows | Đặt `PUB_CACHE` cùng ổ với project, ví dụ `D:\flutter_pub_cache` |
-| Quên mật khẩu demo | Xóa `server/data/soulmate.db` khi server dừng để seed lại (mất dữ liệu) |
+| Quên mật khẩu demo | Xóa `backend/data/soulmate.db` khi server dừng để tạo lại tài khoản thử (mất dữ liệu) |
 
 ## 15. Tài liệu
 
+- [`docs/README.md`](docs/README.md) — **mục lục tài liệu**: mỗi thư mục có `README.md` riêng (file nào làm gì, ai gọi tới).
+- [`docs/LUONG_CODE_THEO_FILE.md`](docs/LUONG_CODE_THEO_FILE.md) — **luồng code từ file này tới file khác** cho từng chức năng (chat, feed, phòng, Soul Game, gọi điện, hồ sơ).
+- [`frontend/docs/`](frontend/docs/00_kien_truc.md) — **tài liệu frontend, mỗi chức năng một tệp riêng** (bắt đầu từ `00_kien_truc.md`).
 - [`docs/CODE_FLOWS_VI.md`](docs/CODE_FLOWS_VI.md) — **luồng chạy code chi tiết của từng chức năng** (auth, hồ sơ, feed, chat, gọi, Soul Game, phòng, ví).
 - [`docs/FILE_GUIDE_VI.md`](docs/FILE_GUIDE_VI.md) — **danh mục từng thư mục/từng file** và nên sửa ở đâu.
 - [`docs/PROJECT_GUIDE_VI.md`](docs/PROJECT_GUIDE_VI.md) — cấu trúc thư mục, WebRTC, feed/bình luận và các file nên đọc.

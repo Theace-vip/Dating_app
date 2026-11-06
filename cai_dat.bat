@@ -1,3 +1,5 @@
+:: cai_dat.bat - Chay MOT LAN sau khi tai project: kiem tra Node/Flutter,
+:: cai thu vien backend, tao database va build app Android. Chay lai van an toan.
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
@@ -20,20 +22,23 @@ if errorlevel 1 (
 )
 echo [1/7] Flutter + Node.js - OK
 
-REM ===== 2. Dependency cua app Flutter =====
+REM ===== 2. Dependency cua app Flutter (frontend) =====
 echo.
-echo [2/7] flutter pub get...
+echo [2/7] flutter pub get (frontend)...
+pushd "%~dp0frontend"
 call flutter pub get >nul 2>nul
 if errorlevel 1 (
+  popd
   echo [LOI] flutter get that bai.
   goto :fail
 )
+popd
 echo        OK
 
-REM ===== 3. Dependency cua server =====
+REM ===== 3. Dependency cua backend =====
 echo.
-echo [3/7] npm install (server)...
-pushd "%~dp0server"
+echo [3/7] npm install (backend)...
+pushd "%~dp0backend"
 call npm install --no-audit --no-fund >nul 2>nul
 if errorlevel 1 (
   popd
@@ -46,7 +51,7 @@ echo        OK
 REM ===== 4. Tao certificate HTTPS (neu chua co) =====
 echo.
 echo [4/7] Kiem tra certificate HTTPS (cert pinning)...
-pushd "%~dp0server"
+pushd "%~dp0backend"
 call npm run gen-cert --silent >nul 2>nul
 popd
 echo        OK
@@ -61,12 +66,15 @@ if not defined ADB if exist "%ANDROID_HOME%\platform-tools\adb.exe" set "ADB=%AN
 REM ===== 6. Build APK =====
 echo.
 echo [5/7] Build APK debug (lan dau co the mat 2-5 phut)...
+pushd "%~dp0frontend"
 call flutter build apk --debug
 if errorlevel 1 (
+  popd
   echo [LOI] Build APK that bai - xem loi o tren.
   goto :fail
 )
-echo        APK: build\app\outputs\flutter-apk\app-debug.apk
+popd
+echo        APK: frontend\build\app\outputs\flutter-apk\app-debug.apk
 
 if not defined ADB (
   echo.
@@ -88,7 +96,7 @@ if not defined SERIAL (
 
 echo.
 echo [6/7] Cai APK vao dien thoai %SERIAL%...
-"%ADB%" -s %SERIAL% install -r "build\app\outputs\flutter-apk\app-debug.apk"
+"%ADB%" -s %SERIAL% install -r "frontend\build\app\outputs\flutter-apk\app-debug.apk"
 REM Chuyen tiep cong 3000 tu dien thoai - PC (qua cap USB)
 "%ADB%" -s %SERIAL% reverse tcp:3000 tcp:3000
 echo        Da cai + da mo cong adb reverse tcp:3000
@@ -102,7 +110,7 @@ netstat -ano | findstr ":3000" | findstr "LISTENING" >nul
 if not errorlevel 1 (
   echo        Server dang chay tren cong 3000 - bo qua.
 ) else (
-  start "SoulMate Server" cmd /k node "%~dp0server\src\index.js"
+  start "SoulMate Server" cmd /k node "%~dp0backend\src\index.js"
   echo        Server da mo trong cua so "SoulMate Server".
 )
 

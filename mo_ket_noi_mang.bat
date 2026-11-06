@@ -1,3 +1,5 @@
+:: mo_ket_noi_mang.bat - Mo cong firewall TCP 3000 cho backend de dien thoai trong
+:: cung WiFi ket noi. Can quyen Admin (script tu xin elevate).
 @echo off
 chcp 65001 >nul
 title SoulMate - Mo ket noi mang (Firewall)

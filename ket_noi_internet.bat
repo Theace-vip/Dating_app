@@ -1,3 +1,5 @@
+:: ket_noi_internet.bat - Dua server ra Internet bang Cloudflare Tunnel de thiet bi
+:: o bat ky dau cung vao duoc (khong can cung WiFi). Tu tai cloudflared lan dau.
 @echo off
 title SoulMate - Ket noi Internet (Cloudflare Tunnel)
 cd /d "%~dp0"
@@ -14,11 +16,11 @@ if errorlevel 1 (
 )
 
 :: Tai cloudflared neu chua co
-if not exist "server\cloudflared.exe" (
+if not exist "backend\cloudflared.exe" (
   echo Dang tai cloudflared lan dau, khoang 53MB...
-  curl -sL -o "server\cloudflared.exe" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
+  curl -sL -o "backend\cloudflared.exe" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
 )
-if not exist "server\cloudflared.exe" (
+if not exist "backend\cloudflared.exe" (
   echo [LOI] Tai cloudflared that bai - kiem tra ket noi Internet.
   goto :end
 )
@@ -27,7 +29,7 @@ if not exist "server\cloudflared.exe" (
 curl -sk https://localhost:3000/health >nul 2>&1
 if errorlevel 1 (
   echo Khoi dong SoulMate Server...
-  start "SoulMate Server" cmd /k cd /d "%~dp0server" ^&^& node src/index.js
+  start "SoulMate Server" cmd /k cd /d "%~dp0backend" ^&^& node src/index.js
   ping -n 5 127.0.0.1 >nul
 ) else (
   echo Server da chay san.
@@ -36,7 +38,7 @@ if errorlevel 1 (
 :: Khoi dong tunnel (chay ngam, ghi log vao tunnel.log)
 del /q "tunnel.log" 2>nul
 echo Dang mo tunnel Cloudflare...
-start "SoulMate Tunnel - khong dong cua so nay" /min "%~dp0server\tunnel.bat"
+start "SoulMate Tunnel - khong dong cua so nay" /min "%~dp0backend\tunnel.bat"
 
 :: Doi tunnel len URL (thu toi 5 lan x 3 giay)
 set "URL="
